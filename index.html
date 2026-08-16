@@ -917,36 +917,32 @@ async function storageSet(key, value, shared){
 
 function uid(){ return 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
+let salvando = 0; // contador de gravações em andamento — pausa o auto-refresh enquanto > 0
+
 async function loadData(){
+  // Nunca zera os dados já carregados por causa de uma falha de leitura —
+  // só substitui quando a resposta realmente veio com sucesso.
   try{
     const res = await storageGet(STORAGE_KEY, false);
-    acoes = res && res.value ? JSON.parse(res.value) : [];
-  }catch(e){
-    acoes = [];
-  }
+    if(res){ acoes = res.value ? JSON.parse(res.value) : []; }
+  }catch(e){ console.error('Falha ao carregar ações, mantendo dados atuais', e); }
   try{
     const resA = await storageGet(AREAS_KEY, false);
-    areasCustom = resA && resA.value ? JSON.parse(resA.value) : [];
-  }catch(e){
-    areasCustom = [];
-  }
+    if(resA){ areasCustom = resA.value ? JSON.parse(resA.value) : []; }
+  }catch(e){ console.error('Falha ao carregar áreas, mantendo dados atuais', e); }
   try{
     const resR = await storageGet(RECIC_KEY, false);
-    reciclagens = resR && resR.value ? JSON.parse(resR.value) : [];
-  }catch(e){
-    reciclagens = [];
-  }
+    if(resR){ reciclagens = resR.value ? JSON.parse(resR.value) : []; }
+  }catch(e){ console.error('Falha ao carregar reciclagens, mantendo dados atuais', e); }
   try{
     const resD = await storageGet(ALERTA_DIAS_KEY, false);
-    alertaDias = resD && resD.value ? Number(resD.value) : 45;
-  }catch(e){
-    alertaDias = 45;
-  }
+    if(resD){ alertaDias = resD.value ? Number(resD.value) : 45; }
+  }catch(e){ console.error('Falha ao carregar prazo de alerta, mantendo dados atuais', e); }
   try{
     const resP = await storageGet(PESSOAS_KEY, false);
-    pessoas = resP && resP.value ? JSON.parse(resP.value) : [];
+    if(resP){ pessoas = resP.value ? JSON.parse(resP.value) : []; }
   }catch(e){
-    pessoas = [];
+    console.error('Falha ao carregar pessoas, mantendo dados atuais', e);
   }
   document.getElementById('f-alerta-dias').value = alertaDias;
 
@@ -982,10 +978,13 @@ function refreshAreaSelects(){
 }
 
 async function saveAreas(){
+  salvando++;
   try{
     await storageSet(AREAS_KEY, JSON.stringify(areasCustom), false);
   }catch(e){
     console.error('Falha ao salvar áreas', e);
+  }finally{
+    salvando--;
   }
 }
 
@@ -1034,10 +1033,13 @@ async function adicionarArea(){
 }
 
 async function saveData(){
+  salvando++;
   try{
     await storageSet(STORAGE_KEY, JSON.stringify(acoes), false);
   }catch(e){
     console.error('Falha ao salvar', e);
+  }finally{
+    salvando--;
   }
 }
 
@@ -1572,11 +1574,12 @@ document.getElementById('btn-import-confirm').addEventListener('click', async ()
 loadData();
 
 /* ===== Atualização automática (puxa o que outros lançaram) =====
-   A cada 30s, se ninguém estiver com um formulário/modal aberto,
-   recarrega os dados da planilha e atualiza a tela sozinho. */
+   A cada 30s, se ninguém estiver com um formulário/modal aberto E não houver
+   nenhum salvamento em andamento (evita ler a planilha no meio de uma
+   gravação e mostrar dado desatualizado), recarrega os dados e atualiza a tela. */
 setInterval(async ()=>{
   const modalAberto = document.querySelector('.overlay.open');
-  if(modalAberto) return;
+  if(modalAberto || salvando > 0) return;
   await loadData();
   renderReciclagens();
 }, 30000);
@@ -1783,10 +1786,13 @@ function renderDashboard(){
 /* ================= RECICLAGENS ================= */
 
 async function saveReciclagens(){
+  salvando++;
   try{
     await storageSet(RECIC_KEY, JSON.stringify(reciclagens), false);
   }catch(e){
     console.error('Falha ao salvar reciclagens', e);
+  }finally{
+    salvando--;
   }
 }
 
@@ -2051,9 +2057,11 @@ document.getElementById('btn-import-recic-confirm').addEventListener('click', as
 document.getElementById('btn-salvar-alerta-dias').addEventListener('click', async ()=>{
   const v = Number(document.getElementById('f-alerta-dias').value);
   alertaDias = (v && v > 0) ? v : 45;
+  salvando++;
   try{
     await storageSet(ALERTA_DIAS_KEY, String(alertaDias), false);
   }catch(e){ console.error('Falha ao salvar prazo de alerta', e); }
+  finally{ salvando--; }
   renderReciclagens();
 });
 
@@ -2090,10 +2098,13 @@ document.getElementById('f-recic-planilha').addEventListener('change', async (e)
 /* ================= PESSOAS ================= */
 
 async function savePessoas(){
+  salvando++;
   try{
     await storageSet(PESSOAS_KEY, JSON.stringify(pessoas), false);
   }catch(e){
     console.error('Falha ao salvar pessoas', e);
+  }finally{
+    salvando--;
   }
 }
 

@@ -854,26 +854,25 @@ const PESSOAS_KEY = 'painel-acoes:pessoas';
 let pessoas = [];
 let importPessoasPreview = [];
 
-/* ===== Armazenamento compartilhado (mesma informação para quem abrir o link) =====
-   Cole aqui a URL do gatilho HTTP do fluxo do Power Automate (ver guia de
-   configuração) antes de publicar no Netlify/Vercel. Com essa URL preenchida,
-   todo mundo que abrir o link lê e grava na mesma lista do SharePoint.
+/* ===== Armazenamento compartilhado (Google Sheets via Apps Script) =====
+   Cole aqui a URL do Web App do Apps Script (ver guia GUIA-CONFIGURACAO.md)
+   antes de publicar no GitHub Pages. Com essa URL preenchida, todo mundo que
+   abrir o link lê e grava na mesma planilha do Google Sheets.
+   Usa apenas GET (o firewall da Gestamp bloqueia POST para fora), com envio
+   em pedaços (chunks) para não estourar o limite de tamanho da URL.
    Deixando em branco, o painel funciona sozinho: usa o armazenamento do Claude
    quando disponível, ou o localStorage do navegador (dados só naquele dispositivo). */
-const POWER_AUTOMATE_URL = '';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyoEQvcJHkA4LB8phcPJ3qmdwy90sI0uTKjPM1ETYLLQ-NfMsPd_kid2vVTAG6Ikcoy/exec';
+const CHUNK_SIZE = 1800; // tamanho de cada pedaço (já codificado) enviado por GET
 
 async function storageGet(key, shared){
-  if(POWER_AUTOMATE_URL){
+  if(APPS_SCRIPT_URL){
     try{
-      const resp = await fetch(POWER_AUTOMATE_URL, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({action:'get', key})
-      });
+      const resp = await fetch(`${APPS_SCRIPT_URL}?action=get&key=${encodeURIComponent(key)}`);
       const data = await resp.json();
-      return (data && data.value !== undefined && data.value !== null) ? {key, value:data.value, shared:!!shared} : null;
+      return (data && data.ok && data.value !== undefined && data.value !== null) ? {key, value:data.value, shared:!!shared} : null;
     }catch(e){
-      console.error('Falha ao ler do armazenamento compartilhado', e);
+      console.error('Falha ao ler do Google Sheets', e);
       return null;
     }
   }
@@ -887,17 +886,22 @@ async function storageGet(key, shared){
   }catch(e){ return null; }
 }
 async function storageSet(key, value, shared){
-  if(POWER_AUTOMATE_URL){
+  if(APPS_SCRIPT_URL){
     try{
-      const resp = await fetch(POWER_AUTOMATE_URL, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({action:'set', key, value})
-      });
-      if(!resp.ok) throw new Error('Resposta não-OK do fluxo');
+      const encoded = encodeURIComponent(value);
+      const chunks = [];
+      for(let i=0; i<encoded.length; i+=CHUNK_SIZE) chunks.push(encoded.slice(i, i+CHUNK_SIZE));
+      if(chunks.length === 0) chunks.push('');
+      const uploadId = 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+      for(let i=0; i<chunks.length; i++){
+        const url = `${APPS_SCRIPT_URL}?action=setChunk&key=${encodeURIComponent(key)}&uploadId=${uploadId}&chunkIndex=${i}&totalChunks=${chunks.length}&data=${chunks[i]}`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+        if(!data || !data.ok) throw new Error('Falha ao enviar pedaço ' + i);
+      }
       return {key, value, shared:!!shared};
     }catch(e){
-      console.error('Falha ao gravar no armazenamento compartilhado', e);
+      console.error('Falha ao gravar no Google Sheets', e);
       return null;
     }
   }
@@ -947,12 +951,12 @@ async function loadData(){
   document.getElementById('f-alerta-dias').value = alertaDias;
 
   const modoNote = document.getElementById('storage-mode-note');
-  if(POWER_AUTOMATE_URL){
-    modoNote.textContent = 'Armazenamento compartilhado (SharePoint) — mesmos dados para todos';
+  if(APPS_SCRIPT_URL){
+    modoNote.textContent = 'Armazenamento compartilhado (Google Sheets) — mesmos dados para todos';
   } else if(typeof window.storage !== 'undefined' && window.storage){
     modoNote.textContent = '';
   } else {
-    modoNote.textContent = '⚠ Armazenamento local deste navegador — configure a URL do Power Automate para compartilhar entre usuários';
+    modoNote.textContent = '⚠ Armazenamento local deste navegador — configure a URL do Apps Script para compartilhar entre usuários';
     modoNote.style.color = 'var(--amber)';
   }
   refreshAreaSelects();
@@ -1566,6 +1570,16 @@ document.getElementById('btn-import-confirm').addEventListener('click', async ()
 });
 
 loadData();
+
+/* ===== Atualização automática (puxa o que outros lançaram) =====
+   A cada 30s, se ninguém estiver com um formulário/modal aberto,
+   recarrega os dados da planilha e atualiza a tela sozinho. */
+setInterval(async ()=>{
+  const modalAberto = document.querySelector('.overlay.open');
+  if(modalAberto) return;
+  await loadData();
+  renderReciclagens();
+}, 30000);
 
 /* ===== Engrenagem: menu central de importação ===== */
 document.getElementById('btn-gear').addEventListener('click', ()=>{

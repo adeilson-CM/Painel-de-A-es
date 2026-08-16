@@ -966,6 +966,36 @@ function todasAreas(){
   return [...base, ...areasCustom, 'Outra'];
 }
 
+/* ===== Buscar-antes-de-salvar =====
+   Como o painel grava a lista inteira de uma vez, se duas pessoas editarem
+   quase ao mesmo tempo, quem salvar por último pode apagar o que a outra
+   acabou de lançar. Para evitar isso, sempre buscamos a versão mais recente
+   da planilha logo antes de aplicar e gravar qualquer mudança. */
+async function refrescarAcoesDoServidor(){
+  try{
+    const res = await storageGet(STORAGE_KEY, false);
+    if(res){ acoes = res.value ? JSON.parse(res.value) : []; }
+  }catch(e){ console.error('Falha ao buscar dados mais recentes antes de salvar', e); }
+}
+async function refrescarReciclagensDoServidor(){
+  try{
+    const res = await storageGet(RECIC_KEY, false);
+    if(res){ reciclagens = res.value ? JSON.parse(res.value) : []; }
+  }catch(e){ console.error('Falha ao buscar reciclagens mais recentes antes de salvar', e); }
+}
+async function refrescarPessoasDoServidor(){
+  try{
+    const res = await storageGet(PESSOAS_KEY, false);
+    if(res){ pessoas = res.value ? JSON.parse(res.value) : []; }
+  }catch(e){ console.error('Falha ao buscar pessoas mais recentes antes de salvar', e); }
+}
+async function refrescarAreasDoServidor(){
+  try{
+    const res = await storageGet(AREAS_KEY, false);
+    if(res){ areasCustom = res.value ? JSON.parse(res.value) : []; }
+  }catch(e){ console.error('Falha ao buscar áreas mais recentes antes de salvar', e); }
+}
+
 function refreshAreaSelects(){
   const lista = todasAreas();
   ['f-area','filter-area'].forEach(id=>{
@@ -1005,6 +1035,7 @@ function renderAreaList(){
     btn.textContent = '✕';
     btn.title = 'Remover área';
     btn.addEventListener('click', async ()=>{
+      await refrescarAreasDoServidor();
       areasCustom = areasCustom.filter(x=>x!==a);
       await saveAreas();
       refreshAreaSelects();
@@ -1020,8 +1051,11 @@ async function adicionarArea(){
   const input = document.getElementById('f-nova-area');
   const nome = input.value.trim();
   if(!nome) return;
+  await refrescarAreasDoServidor();
   if(todasAreas().some(a=>a.toLowerCase()===nome.toLowerCase())){
     input.value = '';
+    refreshAreaSelects();
+    renderAreaList();
     return;
   }
   areasCustom.push(nome);
@@ -1223,8 +1257,18 @@ async function salvar(){
     status: document.getElementById('f-status').value,
   };
 
+  // Pega a versão mais recente da planilha antes de aplicar a mudança, para
+  // não sobrescrever o que outra pessoa possa ter lançado nesse meio tempo.
+  await refrescarAcoesDoServidor();
+
   if(editingId){
     const idx = acoes.findIndex(x=>x.id===editingId);
+    if(idx === -1){
+      alert('Essa ação não foi encontrada — pode ter sido excluída por outra pessoa. A tela foi atualizada com os dados mais recentes.');
+      closeModal();
+      render();
+      return;
+    }
     const anterior = acoes[idx];
     if(dados.status === 'Concluída' && anterior.status !== 'Concluída'){
       dados.concluidoEm = new Date().toISOString();
@@ -1238,6 +1282,7 @@ async function salvar(){
     acoes.push(novaAcao);
 
     if(reciclagemOrigemId){
+      await refrescarReciclagensDoServidor();
       const ridx = reciclagens.findIndex(r=>r.id===reciclagemOrigemId);
       if(ridx !== -1){
         reciclagens[ridx].acaoCriada = novaAcao.id;
@@ -1255,6 +1300,7 @@ async function salvar(){
 async function excluir(){
   if(!editingId) return;
   if(!confirm('Excluir esta ação permanentemente?')) return;
+  await refrescarAcoesDoServidor();
   acoes = acoes.filter(x=>x.id!==editingId);
   await saveData();
   closeModal();
@@ -1264,8 +1310,14 @@ async function excluir(){
 async function adicionarEvidencia(){
   const texto = document.getElementById('f-evid-novo').value.trim();
   if(!texto || !editingId) return;
+  await refrescarAcoesDoServidor();
   const idx = acoes.findIndex(x=>x.id===editingId);
-  if(idx === -1) return;
+  if(idx === -1){
+    alert('Essa ação não foi encontrada — pode ter sido excluída por outra pessoa.');
+    closeModal();
+    render();
+    return;
+  }
   if(!acoes[idx].evidencias) acoes[idx].evidencias = [];
   const agora = new Date();
   acoes[idx].evidencias.push({
@@ -1554,6 +1606,8 @@ function mostrarPreview(mapeadas){
 
 document.getElementById('btn-import-confirm').addEventListener('click', async ()=>{
   if(importPreview.length === 0) return;
+  await refrescarAcoesDoServidor();
+  await refrescarAreasDoServidor();
   const novasAreas = new Set();
   importPreview.forEach(r=>{
     acoes.push({id:uid(), ...r, evidencias:[], criadoEm:new Date().toISOString()});
@@ -1898,9 +1952,15 @@ async function salvarReciclagem(){
     vencimento
   };
 
+  await refrescarReciclagensDoServidor();
+
   if(editingRecicId){
     const idx = reciclagens.findIndex(x=>x.id===editingRecicId);
-    reciclagens[idx] = {...reciclagens[idx], ...dados};
+    if(idx === -1){
+      reciclagens.push({id:uid(), ...dados, acaoCriada:null});
+    } else {
+      reciclagens[idx] = {...reciclagens[idx], ...dados};
+    }
   } else {
     reciclagens.push({id:uid(), ...dados, acaoCriada:null});
   }
@@ -1913,11 +1973,13 @@ async function salvarReciclagem(){
 async function excluirReciclagem(){
   if(!editingRecicId) return;
   if(!confirm('Excluir esta reciclagem?')) return;
+  await refrescarReciclagensDoServidor();
   reciclagens = reciclagens.filter(x=>x.id!==editingRecicId);
   await saveReciclagens();
   closeReciclagemModal();
   renderReciclagens();
 }
+
 
 function criarAcaoDeReciclagem(id){
   const r = reciclagens.find(x=>x.id===id);
@@ -2039,6 +2101,7 @@ function mostrarPreviewReciclagens(mapeadas){
 
 document.getElementById('btn-import-recic-confirm').addEventListener('click', async ()=>{
   if(importRecicPreview.length === 0) return;
+  await refrescarReciclagensDoServidor();
   importRecicPreview.forEach(r=>{
     const idx = reciclagens.findIndex(x=>x.colaborador.toLowerCase()===r.colaborador.toLowerCase() && x.categoria.toLowerCase()===r.categoria.toLowerCase());
     if(idx !== -1){
@@ -2123,6 +2186,7 @@ function renderPessoasList(){
     btn.textContent = '✕';
     btn.title = 'Remover pessoa';
     btn.addEventListener('click', async ()=>{
+      await refrescarPessoasDoServidor();
       pessoas = pessoas.filter(x=>x.toLowerCase()!==nome.toLowerCase());
       await savePessoas();
       renderPessoasList();
@@ -2137,6 +2201,7 @@ async function adicionarPessoaManual(){
   const input = document.getElementById('f-nova-pessoa');
   const nome = input.value.trim();
   if(!nome) return;
+  await refrescarPessoasDoServidor();
   if(!pessoas.some(p=>p.toLowerCase()===nome.toLowerCase())){
     pessoas.push(nome);
     await savePessoas();
@@ -2203,6 +2268,7 @@ function mostrarPreviewPessoas(nomes){
 
 document.getElementById('btn-import-pessoas-confirm').addEventListener('click', async ()=>{
   if(importPessoasPreview.length === 0) return;
+  await refrescarPessoasDoServidor();
   importPessoasPreview.forEach(nome=>{
     if(!pessoas.some(p=>p.toLowerCase()===nome.toLowerCase())) pessoas.push(nome);
   });

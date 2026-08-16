@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Painel de Ações — Central Operacional</title>
+<title>Painel de Ações — Operação Logística</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   :root{
     --bg:#12151a;
@@ -31,6 +31,7 @@
     --purple-dim:#241d3a;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
+  html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }
   body{
     background:
       radial-gradient(1200px 600px at 100% -10%, #1b2230 0%, transparent 60%),
@@ -39,8 +40,9 @@
     font-family:'Inter',sans-serif;
     min-height:100vh;
     padding:28px 20px 80px;
+    overflow-x:hidden;
   }
-  .wrap{max-width:1180px; margin:0 auto;}
+  .wrap{max-width:1180px; margin:0 auto; width:100%;}
 
   /* ===== Nameplate header ===== */
   .nameplate{
@@ -124,14 +126,14 @@
     display:flex; gap:10px; flex-wrap:wrap; align-items:center;
     margin-top:20px;
   }
-  select, input[type=text], input[type=date], textarea{
+  select, input[type=text], input[type=date], input[type=number], textarea{
     background:var(--panel-alt);
     border:1px solid var(--line);
     color:var(--text);
     border-radius:7px;
     padding:9px 12px;
     font-family:'Inter',sans-serif;
-    font-size:13.5px;
+    font-size:16px;
     outline:none;
   }
   select:focus, input:focus, textarea:focus{border-color:var(--amber);}
@@ -399,18 +401,43 @@
     .recic-card{grid-template-columns:1fr 1fr;}
     .recic-card .rc-nome{grid-column:1/-1;}
   }
+
+  /* ===== Engrenagem / menu de importação ===== */
+  .gear-btn{
+    position:absolute; top:16px; right:18px;
+    width:34px; height:34px; border-radius:8px;
+    background:var(--panel-alt); border:1px solid var(--line); color:var(--text-dim);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; transition:transform .15s, color .12s, border-color .12s;
+  }
+  .gear-btn:hover{color:var(--amber); border-color:var(--amber); transform:translateY(-2px);}
+  .import-menu-item{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    background:var(--panel-alt); border:1px solid var(--line); border-radius:9px;
+    padding:14px 16px; cursor:pointer; margin-bottom:10px; transition:border-color .12s, background .12s;
+  }
+  .import-menu-item:hover{border-color:var(--amber); background:var(--panel-raised);}
+  .import-menu-item .imi-title{font-weight:600; font-size:14px;}
+  .import-menu-item .imi-sub{font-size:11.5px; color:var(--text-faint); margin-top:2px;}
+  .import-menu-item .imi-arrow{color:var(--text-faint); font-size:18px;}
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <div class="nameplate">
+    <button class="gear-btn" id="btn-gear" title="Importar dados" aria-label="Importar dados">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3v11"/>
+        <path d="M7.5 10.5 12 15l4.5-4.5"/>
+        <path d="M4 16v2.5a2.5 2.5 0 0 0 2.5 2.5h11a2.5 2.5 0 0 0 2.5-2.5V16"/>
+      </svg>
+    </button>
     <div>
       <div class="nameplate-title">
         <span class="pulse"></span>
-        <h1>Painel de Ações</h1>
+        <h1>Painel de Ações — Operação Logística</h1>
       </div>
-      <div class="sub">SEGURANÇA · QUALIDADE · OPERAÇÃO — CONTROLE DE ACOMPANHAMENTO</div>
       <div class="sub" id="storage-mode-note" style="margin-top:2px;"></div>
     </div>
     <div class="readout-row">
@@ -450,7 +477,6 @@
       <option value="status">Ordenar: status</option>
     </select>
     <button class="btn secondary" id="btn-manage-areas">Cadastrar área</button>
-    <button class="btn secondary" id="btn-import">Importar dados</button>
     <button class="btn" id="btn-new">+ Nova ação</button>
   </div>
 
@@ -528,7 +554,6 @@
         <option>PTA</option>
         <option>Outra</option>
       </select>
-      <button class="btn secondary" id="btn-import-recic">Importar planilha</button>
       <button class="btn" id="btn-new-recic">+ Nova reciclagem</button>
     </div>
 
@@ -550,7 +575,7 @@
 
     <div class="field">
       <label>Colaborador</label>
-      <input type="text" id="f-recic-colaborador" placeholder="Nome do colaborador">
+      <input type="text" id="f-recic-colaborador" placeholder="Nome do colaborador" list="lista-responsaveis">
     </div>
 
     <div class="row2">
@@ -576,6 +601,75 @@
       <div class="modal-actions-right">
         <button class="btn secondary" id="btn-recic-cancel">Cancelar</button>
         <button class="btn" id="btn-recic-save">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: menu de importação (engrenagem) -->
+<div class="overlay" id="overlay-import-menu">
+  <div class="modal" style="max-width:440px;">
+    <h2>Importar dados <button class="close-x" id="close-import-menu" aria-label="Fechar">✕</button></h2>
+
+    <div class="import-menu-item" id="menu-import-acoes">
+      <div>
+        <div class="imi-title">Ações</div>
+        <div class="imi-sub">Planilha (.xlsx/.csv) ou imagem — cadastra ações em lote</div>
+      </div>
+      <div class="imi-arrow">›</div>
+    </div>
+
+    <div class="import-menu-item" id="menu-import-reciclagens">
+      <div>
+        <div class="imi-title">Reciclagens</div>
+        <div class="imi-sub">Planilha da segurança — colaborador, categoria e vencimento</div>
+      </div>
+      <div class="imi-arrow">›</div>
+    </div>
+
+    <div class="import-menu-item" id="menu-import-pessoas">
+      <div>
+        <div class="imi-title">Pessoas</div>
+        <div class="imi-sub">Lista de nomes — alimenta os campos de responsável e colaborador em todo o painel</div>
+      </div>
+      <div class="imi-arrow">›</div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: importar planilha de pessoas -->
+<div class="overlay" id="overlay-import-pessoas">
+  <div class="modal" style="max-width:640px;">
+    <h2>
+      <span><button class="close-x" id="back-import-pessoas" aria-label="Voltar" style="margin-right:6px;">‹</button>Importar pessoas</span>
+      <button class="close-x" id="close-import-pessoas-modal" aria-label="Fechar">✕</button>
+    </h2>
+
+    <div class="dropzone" id="dz-pessoas">
+      <div class="dz-icon">📄</div>
+      <div class="dz-title">Clique para escolher um arquivo .xlsx, .xls ou .csv</div>
+      <div class="dz-sub">Coluna reconhecida: nome (ou colaborador / responsável) — uma pessoa por linha</div>
+    </div>
+    <input type="file" id="f-pessoas-planilha" accept=".xlsx,.xls,.csv" style="display:none;">
+
+    <div class="field" style="margin-top:16px;">
+      <label>Ou adicione um nome manualmente</label>
+      <div class="add-area-row">
+        <input type="text" id="f-nova-pessoa" placeholder="Nome completo">
+        <button class="btn" id="btn-add-pessoa">Adicionar</button>
+      </div>
+    </div>
+
+    <div id="import-pessoas-status"></div>
+    <div id="import-pessoas-preview"></div>
+
+    <div class="area-list" id="pessoas-list" style="margin-top:16px;"></div>
+
+    <div class="modal-actions" id="import-pessoas-confirm-row" style="display:none;">
+      <div class="note" style="align-self:center;">Nomes repetidos não são duplicados.</div>
+      <div class="modal-actions-right">
+        <button class="btn secondary" id="btn-import-pessoas-cancel">Cancelar</button>
+        <button class="btn" id="btn-import-pessoas-confirm">Importar</button>
       </div>
     </div>
   </div>
@@ -638,13 +732,15 @@
     <div class="row2">
       <div class="field">
         <label>Responsável pela área</label>
-        <input type="text" id="f-resp-area" placeholder="Nome">
+        <input type="text" id="f-resp-area" placeholder="Nome" list="lista-responsaveis">
       </div>
       <div class="field">
         <label>Responsável pela ação (opcional)</label>
-        <input type="text" id="f-resp-acao" placeholder="Nome">
+        <input type="text" id="f-resp-acao" placeholder="Nome" list="lista-responsaveis">
       </div>
     </div>
+
+    <datalist id="lista-responsaveis"></datalist>
 
     <div class="row2">
       <div class="field">
@@ -754,26 +850,30 @@ let reciclagemOrigemId = null;
 let importRecicPreview = [];
 const RECIC_KEY = 'painel-acoes:reciclagens';
 const ALERTA_DIAS_KEY = 'painel-acoes:alerta-dias';
+const PESSOAS_KEY = 'painel-acoes:pessoas';
+let pessoas = [];
+let importPessoasPreview = [];
 
-/* ===== Armazenamento compartilhado (Google Sheets via Apps Script) =====
-   Cole aqui a URL do Web App do Apps Script (ver guia GUIA-CONFIGURACAO.md)
-   antes de publicar no GitHub Pages. Com essa URL preenchida, todo mundo que
-   abrir o link lê e grava na mesma planilha do Google Sheets.
-   Usa apenas GET (o firewall da Gestamp bloqueia POST para fora), com envio
-   em pedaços (chunks) para não estourar o limite de tamanho da URL.
+/* ===== Armazenamento compartilhado (mesma informação para quem abrir o link) =====
+   Cole aqui a URL do gatilho HTTP do fluxo do Power Automate (ver guia de
+   configuração) antes de publicar no Netlify/Vercel. Com essa URL preenchida,
+   todo mundo que abrir o link lê e grava na mesma lista do SharePoint.
    Deixando em branco, o painel funciona sozinho: usa o armazenamento do Claude
    quando disponível, ou o localStorage do navegador (dados só naquele dispositivo). */
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyoEQvcJHkA4LB8phcPJ3qmdwy90sI0uTKjPMlETYLLQ-NfMsPd_kid2vVTAG6Ikcoy/exec';
-const CHUNK_SIZE = 1800; // tamanho de cada pedaço (já codificado) enviado por GET
+const POWER_AUTOMATE_URL = '';
 
 async function storageGet(key, shared){
-  if(APPS_SCRIPT_URL){
+  if(POWER_AUTOMATE_URL){
     try{
-      const resp = await fetch(`${APPS_SCRIPT_URL}?action=get&key=${encodeURIComponent(key)}`);
+      const resp = await fetch(POWER_AUTOMATE_URL, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({action:'get', key})
+      });
       const data = await resp.json();
-      return (data && data.ok && data.value !== undefined && data.value !== null) ? {key, value:data.value, shared:!!shared} : null;
+      return (data && data.value !== undefined && data.value !== null) ? {key, value:data.value, shared:!!shared} : null;
     }catch(e){
-      console.error('Falha ao ler do Google Sheets', e);
+      console.error('Falha ao ler do armazenamento compartilhado', e);
       return null;
     }
   }
@@ -787,22 +887,17 @@ async function storageGet(key, shared){
   }catch(e){ return null; }
 }
 async function storageSet(key, value, shared){
-  if(APPS_SCRIPT_URL){
+  if(POWER_AUTOMATE_URL){
     try{
-      const encoded = encodeURIComponent(value);
-      const chunks = [];
-      for(let i=0; i<encoded.length; i+=CHUNK_SIZE) chunks.push(encoded.slice(i, i+CHUNK_SIZE));
-      if(chunks.length === 0) chunks.push('');
-      const uploadId = 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
-      for(let i=0; i<chunks.length; i++){
-        const url = `${APPS_SCRIPT_URL}?action=setChunk&key=${encodeURIComponent(key)}&uploadId=${uploadId}&chunkIndex=${i}&totalChunks=${chunks.length}&data=${chunks[i]}`;
-        const resp = await fetch(url);
-        const data = await resp.json();
-        if(!data || !data.ok) throw new Error('Falha ao enviar pedaço ' + i);
-      }
+      const resp = await fetch(POWER_AUTOMATE_URL, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({action:'set', key, value})
+      });
+      if(!resp.ok) throw new Error('Resposta não-OK do fluxo');
       return {key, value, shared:!!shared};
     }catch(e){
-      console.error('Falha ao gravar no Google Sheets', e);
+      console.error('Falha ao gravar no armazenamento compartilhado', e);
       return null;
     }
   }
@@ -843,15 +938,21 @@ async function loadData(){
   }catch(e){
     alertaDias = 45;
   }
+  try{
+    const resP = await storageGet(PESSOAS_KEY, false);
+    pessoas = resP && resP.value ? JSON.parse(resP.value) : [];
+  }catch(e){
+    pessoas = [];
+  }
   document.getElementById('f-alerta-dias').value = alertaDias;
 
   const modoNote = document.getElementById('storage-mode-note');
-  if(APPS_SCRIPT_URL){
-    modoNote.textContent = 'Armazenamento compartilhado (Google Sheets) — mesmos dados para todos';
+  if(POWER_AUTOMATE_URL){
+    modoNote.textContent = 'Armazenamento compartilhado (SharePoint) — mesmos dados para todos';
   } else if(typeof window.storage !== 'undefined' && window.storage){
     modoNote.textContent = '';
   } else {
-    modoNote.textContent = '⚠ Armazenamento local deste navegador — configure a URL do Apps Script para compartilhar entre usuários';
+    modoNote.textContent = '⚠ Armazenamento local deste navegador — configure a URL do Power Automate para compartilhar entre usuários';
     modoNote.style.color = 'var(--amber)';
   }
   refreshAreaSelects();
@@ -1037,6 +1138,20 @@ function render(){
   });
 
   if(document.getElementById('view-dashboard').classList.contains('active')) renderDashboard();
+
+  refreshResponsaveisDatalist();
+}
+
+function refreshResponsaveisDatalist(){
+  const nomes = new Set();
+  pessoas.forEach(n=>{ if(n) nomes.add(n.trim()); });
+  acoes.forEach(a=>{
+    if(a.respArea) nomes.add(a.respArea.trim());
+    if(a.respAcao) nomes.add(a.respAcao.trim());
+  });
+  reciclagens.forEach(r=>{ if(r.colaborador) nomes.add(r.colaborador.trim()); });
+  const lista = [...nomes].sort((a,b)=>a.localeCompare(b));
+  document.getElementById('lista-responsaveis').innerHTML = lista.map(n=>`<option value="${escapeHtml(n)}">`).join('');
 }
 
 function escapeHtml(str){
@@ -1171,12 +1286,19 @@ document.getElementById('sort-by').addEventListener('change', render);
 
 /* ===== Contadores clicáveis (abrir lista filtrada por estágio) ===== */
 function ativarFiltroEstagio(filtro){
+  const fStatusSel = document.getElementById('filter-status');
+  const jaAtivo = filtro === '__atrasadas'
+    ? filtroAtrasadas
+    : (!filtroAtrasadas && fStatusSel.value === filtro);
+
   // volta para a view do Painel, caso esteja no Dashboard
   document.querySelectorAll('.view-tab').forEach(t=>t.classList.toggle('active', t.dataset.view==='painel'));
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.id==='view-painel'));
 
-  const fStatusSel = document.getElementById('filter-status');
-  if(filtro === '__atrasadas'){
+  if(jaAtivo){
+    filtroAtrasadas = false;
+    fStatusSel.value = '';
+  } else if(filtro === '__atrasadas'){
     filtroAtrasadas = true;
     fStatusSel.value = '';
   } else {
@@ -1216,18 +1338,18 @@ function resetImportModal(){
   document.getElementById('f-imagem').value = '';
 }
 
-document.getElementById('btn-import').addEventListener('click', ()=>{
+function abrirImportAcoes(){
   resetImportModal();
   document.getElementById('overlay-import').classList.add('open');
-});
+}
 document.getElementById('close-import-modal').addEventListener('click', ()=>{
-  document.getElementById('overlay-import').classList.remove('open');
+  voltarAoMenuImportacao('overlay-import');
 });
 document.getElementById('btn-import-cancel').addEventListener('click', ()=>{
-  document.getElementById('overlay-import').classList.remove('open');
+  voltarAoMenuImportacao('overlay-import');
 });
 document.getElementById('overlay-import').addEventListener('click', e=>{
-  if(e.target.id==='overlay-import') document.getElementById('overlay-import').classList.remove('open');
+  if(e.target.id==='overlay-import') voltarAoMenuImportacao('overlay-import');
 });
 
 document.querySelectorAll('.import-tab').forEach(tab=>{
@@ -1445,17 +1567,24 @@ document.getElementById('btn-import-confirm').addEventListener('click', async ()
 
 loadData();
 
-/* ===== Atualização automática (puxa o que outros lançaram) =====
-   A cada 30s, se ninguém estiver com um formulário/modal aberto,
-   recarrega os dados da planilha e atualiza a tela sozinho. */
-setInterval(async ()=>{
-  const modalAberto = document.querySelector('.overlay.open');
-  if(modalAberto) return;
-  await loadData();
-  renderReciclagens();
-}, 30000);
-
-/* ===== Navegação entre Painel e Dashboard ===== */
+/* ===== Engrenagem: menu central de importação ===== */
+document.getElementById('btn-gear').addEventListener('click', ()=>{
+  document.getElementById('overlay-import-menu').classList.add('open');
+});
+document.getElementById('close-import-menu').addEventListener('click', ()=>{
+  document.getElementById('overlay-import-menu').classList.remove('open');
+});
+document.getElementById('overlay-import-menu').addEventListener('click', e=>{
+  if(e.target.id==='overlay-import-menu') document.getElementById('overlay-import-menu').classList.remove('open');
+});
+document.getElementById('menu-import-acoes').addEventListener('click', ()=>{
+  document.getElementById('overlay-import-menu').classList.remove('open');
+  abrirImportAcoes();
+});
+document.getElementById('menu-import-reciclagens').addEventListener('click', ()=>{
+  document.getElementById('overlay-import-menu').classList.remove('open');
+  abrirImportReciclagens();
+});
 
 /* ===== Navegação entre Painel e Dashboard ===== */
 document.querySelectorAll('.view-tab').forEach(tab=>{
@@ -1473,14 +1602,27 @@ document.querySelectorAll('.view-tab').forEach(tab=>{
 let charts = {};
 const CHART_TEXT = '#8b93a1';
 const CHART_GRID = '#232933';
-Chart.defaults.color = CHART_TEXT;
-Chart.defaults.font.family = "'Inter',sans-serif";
-Chart.defaults.font.size = 11.5;
+
+function configurarChartDefaults(){
+  if(typeof Chart === 'undefined') return false;
+  if(!Chart.__painelConfigured){
+    Chart.defaults.color = CHART_TEXT;
+    Chart.defaults.font.family = "'Inter',sans-serif";
+    Chart.defaults.font.size = 11.5;
+    Chart.__painelConfigured = true;
+  }
+  return true;
+}
 
 function upsertChart(id, config){
-  const ctx = document.getElementById(id);
-  if(charts[id]) charts[id].destroy();
-  charts[id] = new Chart(ctx, config);
+  try{
+    const ctx = document.getElementById(id);
+    if(!ctx) return;
+    if(charts[id]) charts[id].destroy();
+    charts[id] = new Chart(ctx, config);
+  }catch(e){
+    console.error('Falha ao desenhar gráfico', id, e);
+  }
 }
 
 function renderDashboard(){
@@ -1511,6 +1653,11 @@ function renderDashboard(){
 
   document.getElementById('kpi-atrasadas').textContent = atrasadas.length;
   document.getElementById('kpi-atrasadas-sub').textContent = atrasadas.length ? 'requer atenção imediata' : 'nenhuma no momento';
+
+  if(!configurarChartDefaults()){
+    document.getElementById('dash-charts').innerHTML = '<div class="dash-empty" style="grid-column:1/-1;">Não foi possível carregar a biblioteca de gráficos agora (verifique a conexão) — os indicadores acima continuam atualizados normalmente.</div>';
+    return;
+  }
 
   // ---- Status ----
   const statusCount = {'Aberta':0,'Em andamento':0,'Concluída':0};
@@ -1637,6 +1784,7 @@ function urgenciaReciclagem(dias){
 }
 
 function renderReciclagens(){
+  refreshResponsaveisDatalist();
   const busca = (document.getElementById('recic-search').value || '').trim().toLowerCase();
   const fCat = document.getElementById('recic-filter-categoria').value;
 
@@ -1905,24 +2053,169 @@ document.getElementById('btn-recic-save').addEventListener('click', salvarRecicl
 document.getElementById('btn-recic-delete').addEventListener('click', excluirReciclagem);
 document.getElementById('overlay-recic').addEventListener('click', e=>{ if(e.target.id==='overlay-recic') closeReciclagemModal(); });
 
-document.getElementById('btn-import-recic').addEventListener('click', ()=>{
+function abrirImportReciclagens(){
   resetImportRecicModal();
   document.getElementById('overlay-import-recic').classList.add('open');
-});
+}
 document.getElementById('close-import-recic-modal').addEventListener('click', ()=>{
-  document.getElementById('overlay-import-recic').classList.remove('open');
+  voltarAoMenuImportacao('overlay-import-recic');
 });
 document.getElementById('btn-import-recic-cancel').addEventListener('click', ()=>{
-  document.getElementById('overlay-import-recic').classList.remove('open');
+  voltarAoMenuImportacao('overlay-import-recic');
 });
 document.getElementById('overlay-import-recic').addEventListener('click', e=>{
-  if(e.target.id==='overlay-import-recic') document.getElementById('overlay-import-recic').classList.remove('open');
+  if(e.target.id==='overlay-import-recic') voltarAoMenuImportacao('overlay-import-recic');
 });
 document.getElementById('dz-recic').addEventListener('click', ()=>document.getElementById('f-recic-planilha').click());
 document.getElementById('f-recic-planilha').addEventListener('change', async (e)=>{
   const file = e.target.files[0];
   if(!file) return;
   await processarPlanilhaReciclagens(file);
+});
+
+/* ================= PESSOAS ================= */
+
+async function savePessoas(){
+  try{
+    await storageSet(PESSOAS_KEY, JSON.stringify(pessoas), false);
+  }catch(e){
+    console.error('Falha ao salvar pessoas', e);
+  }
+}
+
+function renderPessoasList(){
+  const wrap = document.getElementById('pessoas-list');
+  wrap.innerHTML = '';
+  if(pessoas.length === 0){
+    wrap.innerHTML = '<div class="note">Nenhuma pessoa cadastrada ainda.</div>';
+    return;
+  }
+  [...pessoas].sort((a,b)=>a.localeCompare(b)).forEach(nome=>{
+    const chip = document.createElement('div');
+    chip.className = 'area-chip';
+    chip.innerHTML = `<span>${escapeHtml(nome)}</span>`;
+    const btn = document.createElement('button');
+    btn.textContent = '✕';
+    btn.title = 'Remover pessoa';
+    btn.addEventListener('click', async ()=>{
+      pessoas = pessoas.filter(x=>x.toLowerCase()!==nome.toLowerCase());
+      await savePessoas();
+      renderPessoasList();
+      refreshResponsaveisDatalist();
+    });
+    chip.appendChild(btn);
+    wrap.appendChild(chip);
+  });
+}
+
+async function adicionarPessoaManual(){
+  const input = document.getElementById('f-nova-pessoa');
+  const nome = input.value.trim();
+  if(!nome) return;
+  if(!pessoas.some(p=>p.toLowerCase()===nome.toLowerCase())){
+    pessoas.push(nome);
+    await savePessoas();
+    refreshResponsaveisDatalist();
+  }
+  input.value = '';
+  renderPessoasList();
+}
+
+function resetImportPessoasModal(){
+  importPessoasPreview = [];
+  document.getElementById('import-pessoas-status').innerHTML = '';
+  document.getElementById('import-pessoas-preview').innerHTML = '';
+  document.getElementById('import-pessoas-confirm-row').style.display = 'none';
+  document.getElementById('f-pessoas-planilha').value = '';
+  document.getElementById('f-nova-pessoa').value = '';
+  renderPessoasList();
+}
+
+async function processarPlanilhaPessoas(file){
+  const statusEl = document.getElementById('import-pessoas-status');
+  statusEl.innerHTML = `<div class="import-status"><div class="spinner"></div> Lendo planilha…</div>`;
+  document.getElementById('import-pessoas-preview').innerHTML = '';
+  document.getElementById('import-pessoas-confirm-row').style.display = 'none';
+  try{
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, {type:'array', cellDates:false});
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
+    const nomes = [];
+    rows.forEach(obj=>{
+      const campos = {};
+      Object.keys(obj).forEach(k=>{ campos[normalizarChave(k)] = obj[k]; });
+      const nome = (campos['nome'] || campos['colaborador'] || campos['responsavel'] || campos['responsável'] || campos['funcionario'] || '').toString().trim();
+      if(nome) nomes.push(nome);
+    });
+    const unicos = [...new Set(nomes)];
+    if(unicos.length === 0){
+      statusEl.innerHTML = `<div class="import-error">Não encontrei uma coluna de nome preenchida. Use um cabeçalho como "Nome", "Colaborador" ou "Responsável".</div>`;
+      return;
+    }
+    statusEl.innerHTML = '';
+    mostrarPreviewPessoas(unicos);
+  }catch(err){
+    console.error(err);
+    statusEl.innerHTML = `<div class="import-error">Não consegui ler esse arquivo. Verifique se é um .xlsx, .xls ou .csv válido.</div>`;
+  }
+}
+
+function mostrarPreviewPessoas(nomes){
+  importPessoasPreview = nomes;
+  const wrap = document.getElementById('import-pessoas-preview');
+  wrap.innerHTML = `
+    <div class="preview-wrap">
+      <table class="preview-table">
+        <thead><tr><th>Nome</th></tr></thead>
+        <tbody>${nomes.map(n=>`<tr><td>${escapeHtml(n)}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <div class="preview-count">${nomes.length} nome(s) prontos para importar.</div>
+  `;
+  document.getElementById('import-pessoas-confirm-row').style.display = 'flex';
+}
+
+document.getElementById('btn-import-pessoas-confirm').addEventListener('click', async ()=>{
+  if(importPessoasPreview.length === 0) return;
+  importPessoasPreview.forEach(nome=>{
+    if(!pessoas.some(p=>p.toLowerCase()===nome.toLowerCase())) pessoas.push(nome);
+  });
+  await savePessoas();
+  refreshResponsaveisDatalist();
+  resetImportPessoasModal();
+});
+
+document.getElementById('btn-add-pessoa').addEventListener('click', adicionarPessoaManual);
+document.getElementById('f-nova-pessoa').addEventListener('keydown', e=>{ if(e.key==='Enter') adicionarPessoaManual(); });
+document.getElementById('dz-pessoas').addEventListener('click', ()=>document.getElementById('f-pessoas-planilha').click());
+document.getElementById('f-pessoas-planilha').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  await processarPlanilhaPessoas(file);
+});
+
+function abrirImportPessoas(){
+  resetImportPessoasModal();
+  document.getElementById('overlay-import-pessoas').classList.add('open');
+}
+document.getElementById('menu-import-pessoas').addEventListener('click', ()=>{
+  document.getElementById('overlay-import-menu').classList.remove('open');
+  abrirImportPessoas();
+});
+
+/* ================= NAVEGAÇÃO ENTRE MENU DE IMPORTAÇÃO E CADA TELA =================
+   Fechar (✕) cada tela específica de importação volta para o menu da engrenagem,
+   em vez de fechar tudo e cair na tela inicial. Só o ✕ do menu principal fecha de vez. */
+function voltarAoMenuImportacao(overlayAtualId){
+  document.getElementById(overlayAtualId).classList.remove('open');
+  document.getElementById('overlay-import-menu').classList.add('open');
+}
+document.getElementById('close-import-pessoas-modal').addEventListener('click', ()=>voltarAoMenuImportacao('overlay-import-pessoas'));
+document.getElementById('back-import-pessoas').addEventListener('click', ()=>voltarAoMenuImportacao('overlay-import-pessoas'));
+document.getElementById('btn-import-pessoas-cancel').addEventListener('click', ()=>voltarAoMenuImportacao('overlay-import-pessoas'));
+document.getElementById('overlay-import-pessoas').addEventListener('click', e=>{
+  if(e.target.id==='overlay-import-pessoas') voltarAoMenuImportacao('overlay-import-pessoas');
 });
 </script>
 </body>

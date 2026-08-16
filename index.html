@@ -1445,6 +1445,18 @@ document.getElementById('btn-import-confirm').addEventListener('click', async ()
 
 loadData();
 
+/* ===== Atualização automática (puxa o que outros lançaram) =====
+   A cada 30s, se ninguém estiver com um formulário/modal aberto,
+   recarrega os dados da planilha e atualiza a tela sozinho. */
+setInterval(async ()=>{
+  const modalAberto = document.querySelector('.overlay.open');
+  if(modalAberto) return;
+  await loadData();
+  renderReciclagens();
+}, 30000);
+
+/* ===== Navegação entre Painel e Dashboard ===== */
+
 /* ===== Navegação entre Painel e Dashboard ===== */
 document.querySelectorAll('.view-tab').forEach(tab=>{
   tab.addEventListener('click', ()=>{

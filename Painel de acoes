@@ -1,0 +1,1917 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel de Ações — Central Operacional</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#12151a;
+    --panel:#1a1f27;
+    --panel-alt:#20262f;
+    --panel-raised:#252c37;
+    --line:#2b323d;
+    --line-soft:#232933;
+    --text:#e9ecf1;
+    --text-dim:#8b93a1;
+    --text-faint:#5c6472;
+    --amber:#f2a900;
+    --amber-dim:#4a3b14;
+    --green:#2fb170;
+    --green-dim:#12301f;
+    --red:#e5484d;
+    --red-dim:#3a1618;
+    --blue:#4c8dff;
+    --blue-dim:#132038;
+    --purple:#a684ff;
+    --purple-dim:#241d3a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 100% -10%, #1b2230 0%, transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding:28px 20px 80px;
+  }
+  .wrap{max-width:1180px; margin:0 auto;}
+
+  /* ===== Nameplate header ===== */
+  .nameplate{
+    background:linear-gradient(180deg,var(--panel-raised),var(--panel));
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:22px 26px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:18px;
+    position:relative;
+    overflow:hidden;
+  }
+  .nameplate::before{
+    content:"";
+    position:absolute; inset:0 0 auto 0; height:3px;
+    background:repeating-linear-gradient(90deg,var(--amber) 0 14px, transparent 14px 24px);
+    opacity:.55;
+  }
+  .nameplate-title{display:flex; align-items:center; gap:12px;}
+  .pulse{
+    width:10px; height:10px; border-radius:50%;
+    background:var(--green);
+    box-shadow:0 0 0 0 rgba(47,177,112,.6);
+    animation:pulse 2.2s infinite;
+    flex-shrink:0;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(47,177,112,.55);}
+    70%{box-shadow:0 0 0 9px rgba(47,177,112,0);}
+    100%{box-shadow:0 0 0 0 rgba(47,177,112,0);}
+  }
+  .nameplate h1{
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+    font-size:26px;
+    letter-spacing:.5px;
+    text-transform:uppercase;
+  }
+  .nameplate .sub{
+    font-size:12.5px; color:var(--text-dim);
+    font-family:'IBM Plex Mono',monospace;
+    margin-top:4px;
+    letter-spacing:.3px;
+  }
+
+  .readout-row{display:flex; gap:10px; flex-wrap:wrap;}
+  .readout{
+    background:var(--panel-alt);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:8px 16px;
+    min-width:84px;
+    text-align:center;
+    cursor:pointer;
+    transition:background .12s, border-color .12s, transform .08s;
+  }
+  .readout:hover{background:var(--panel-raised); border-color:var(--amber);}
+  .readout:active{transform:scale(.97);}
+  .readout.active-filter{border-color:var(--amber); box-shadow:0 0 0 1px var(--amber) inset;}
+  .readout .num{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:22px;
+    font-weight:600;
+    line-height:1.1;
+  }
+  .readout .lbl{
+    font-size:10px; color:var(--text-dim);
+    text-transform:uppercase; letter-spacing:.8px;
+    margin-top:2px;
+  }
+  .readout.aberta .num{color:var(--blue);}
+  .readout.andamento .num{color:var(--amber);}
+  .readout.concluida .num{color:var(--green);}
+  .readout.atrasada .num{color:var(--red);}
+
+  /* ===== Toolbar ===== */
+  .toolbar{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    margin-top:20px;
+  }
+  select, input[type=text], input[type=date], textarea{
+    background:var(--panel-alt);
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:7px;
+    padding:9px 12px;
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    outline:none;
+  }
+  select:focus, input:focus, textarea:focus{border-color:var(--amber);}
+  .search{flex:1; min-width:160px;}
+  .btn{
+    background:var(--amber);
+    color:#1a1305;
+    border:none;
+    border-radius:7px;
+    padding:10px 18px;
+    font-weight:600;
+    font-size:13.5px;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+    letter-spacing:.2px;
+  }
+  .btn:hover{filter:brightness(1.08);}
+  .btn:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, .card:focus-visible{
+    outline:2px solid var(--amber); outline-offset:2px;
+  }
+  .btn.secondary{
+    background:transparent; color:var(--text); border:1px solid var(--line);
+  }
+  .btn.ghost{background:transparent; color:var(--text-dim); border:1px solid var(--line); padding:8px 14px; font-size:12.5px;}
+  .btn.danger{background:transparent; color:var(--red); border:1px solid #4a2224;}
+
+  /* ===== Board ===== */
+  .board{margin-top:22px; display:flex; flex-direction:column; gap:10px;}
+  .empty{
+    text-align:center; padding:60px 20px; color:var(--text-faint);
+    border:1px dashed var(--line); border-radius:10px; font-size:14px;
+  }
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-left:4px solid var(--text-faint);
+    border-radius:9px;
+    padding:14px 18px;
+    display:grid;
+    grid-template-columns:1.6fr 1fr 1fr 1fr auto;
+    gap:14px;
+    align-items:center;
+    cursor:pointer;
+    transition:background .12s, border-color .12s;
+  }
+  .card:hover{background:var(--panel-alt);}
+  .card.status-verde{border-left-color:var(--green);}
+  .card.status-amber{border-left-color:var(--amber);}
+  .card.status-red{border-left-color:var(--red);}
+  .card.status-concluida{border-left-color:var(--text-faint); opacity:.6;}
+
+  .c-title{font-weight:600; font-size:14.5px;}
+  .c-meta{font-size:11.5px; color:var(--text-faint); margin-top:3px; font-family:'IBM Plex Mono',monospace;}
+  .tag{
+    display:inline-block; font-size:10.5px; text-transform:uppercase; letter-spacing:.6px;
+    padding:3px 8px; border-radius:5px; font-weight:600;
+  }
+  .tag.area-seguranca{background:var(--red-dim); color:#ff9295;}
+  .tag.area-qualidade{background:var(--blue-dim); color:#8db4ff;}
+  .tag.area-operacao{background:var(--amber-dim); color:#ffcb61;}
+  .tag.area-manutencao{background:var(--purple-dim); color:#c7b3ff;}
+  .tag.area-outra{background:var(--panel-raised); color:var(--text-dim);}
+
+  .c-resp{font-size:12.5px;}
+  .c-resp .lbl{color:var(--text-faint); font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:2px;}
+
+  .c-prazo{font-family:'IBM Plex Mono',monospace; font-size:13px; text-align:left;}
+  .c-prazo .days{font-size:11px; margin-top:2px;}
+  .days.verde{color:var(--green);}
+  .days.amber{color:var(--amber);}
+  .days.red{color:var(--red);}
+
+  .c-status-pill{
+    font-size:11px; padding:5px 11px; border-radius:20px; font-weight:600;
+    white-space:nowrap; justify-self:end;
+  }
+  .pill-aberta{background:var(--blue-dim); color:#8db4ff;}
+  .pill-andamento{background:var(--amber-dim); color:#ffcb61;}
+  .pill-concluida{background:var(--green-dim); color:#7fe0ac;}
+
+  @media (max-width:900px){
+    .card{grid-template-columns:1fr 1fr; grid-template-areas:"a a" "b c" "d e";}
+    .c-title{grid-column:1/-1;}
+  }
+
+  /* ===== Modal ===== */
+  .overlay{
+    position:fixed; inset:0; background:rgba(8,10,13,.72);
+    display:none; align-items:flex-start; justify-content:center;
+    padding:40px 16px; overflow-y:auto; z-index:50;
+  }
+  .overlay.open{display:flex;}
+  .modal{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    width:100%; max-width:620px; padding:26px 28px 28px;
+  }
+  .modal h2{
+    font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.4px;
+    font-size:18px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .close-x{cursor:pointer; color:var(--text-dim); font-size:20px; background:none; border:none; line-height:1;}
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:11.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-dim); margin-bottom:6px;}
+  .field input, .field select, .field textarea{width:100%;}
+  .field textarea{resize:vertical; min-height:60px;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .modal-actions{display:flex; justify-content:space-between; margin-top:20px; gap:10px;}
+  .modal-actions-right{display:flex; gap:10px;}
+
+  .evid-log{margin-top:6px; display:flex; flex-direction:column; gap:8px; max-height:180px; overflow-y:auto;}
+  .evid-item{
+    background:var(--panel-alt); border:1px solid var(--line-soft); border-radius:7px;
+    padding:9px 12px; font-size:12.5px;
+  }
+  .evid-item .when{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--text-faint); margin-bottom:3px;}
+  .evid-add{display:flex; gap:8px; margin-top:8px;}
+  .evid-add textarea{flex:1; min-height:44px;}
+
+  .note{font-size:11px; color:var(--text-faint); margin-top:4px; line-height:1.5;}
+  .footer-note{
+    text-align:center; color:var(--text-faint); font-size:11.5px; margin-top:36px; line-height:1.7;
+  }
+
+  /* ===== Área: lista de tags cadastráveis ===== */
+  .area-list{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; margin-bottom:16px;}
+  .area-chip{
+    display:flex; align-items:center; gap:7px;
+    background:var(--panel-alt); border:1px solid var(--line);
+    border-radius:20px; padding:6px 8px 6px 14px; font-size:12.5px;
+  }
+  .area-chip.default{color:var(--text-dim);}
+  .area-chip button{
+    background:var(--panel-raised); border:none; color:var(--text-dim);
+    width:18px; height:18px; border-radius:50%; cursor:pointer; font-size:11px; line-height:1;
+  }
+  .area-chip button:hover{color:var(--red);}
+  .add-area-row{display:flex; gap:8px;}
+  .add-area-row input{flex:1;}
+
+  /* ===== Import: tabs e dropzones ===== */
+  .import-tabs{display:flex; gap:8px; margin-bottom:16px; border-bottom:1px solid var(--line);}
+  .import-tab{
+    background:none; border:none; color:var(--text-dim); padding:9px 4px 11px;
+    font-size:13px; font-weight:600; cursor:pointer; border-bottom:2px solid transparent;
+    margin-bottom:-1px;
+  }
+  .import-tab.active{color:var(--amber); border-bottom-color:var(--amber);}
+  .import-pane{display:none;}
+  .import-pane.active{display:block;}
+  .dropzone{
+    border:1.5px dashed var(--line); border-radius:9px; padding:26px 18px;
+    text-align:center; cursor:pointer; transition:border-color .12s, background .12s;
+  }
+  .dropzone:hover{border-color:var(--amber); background:var(--panel-alt);}
+  .dropzone .dz-icon{font-size:24px; margin-bottom:8px;}
+  .dropzone .dz-title{font-size:13.5px; font-weight:600;}
+  .dropzone .dz-sub{font-size:11.5px; color:var(--text-faint); margin-top:4px;}
+  .import-status{
+    display:flex; align-items:center; gap:10px; padding:14px 4px; font-size:13px; color:var(--text-dim);
+  }
+  .spinner{
+    width:16px; height:16px; border-radius:50%;
+    border:2px solid var(--line); border-top-color:var(--amber);
+    animation:spin .8s linear infinite; flex-shrink:0;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .import-error{
+    background:var(--red-dim); color:#ff9295; border-radius:7px; padding:10px 12px; font-size:12.5px;
+  }
+  .preview-table{width:100%; border-collapse:collapse; font-size:12px; margin-top:4px;}
+  .preview-table th{
+    text-align:left; color:var(--text-faint); text-transform:uppercase; font-size:10px;
+    letter-spacing:.4px; padding:6px 8px; border-bottom:1px solid var(--line);
+  }
+  .preview-table td{padding:7px 8px; border-bottom:1px solid var(--line-soft); vertical-align:top;}
+  .preview-wrap{max-height:260px; overflow-y:auto; border:1px solid var(--line); border-radius:8px; margin-top:10px;}
+  .preview-count{font-size:12.5px; color:var(--text-dim); margin-top:10px;}
+
+  /* ===== Navegação de views ===== */
+  .view-tabs{display:flex; gap:6px; margin-top:20px; border-bottom:1px solid var(--line);}
+  .view-tab{
+    background:none; border:none; color:var(--text-dim); padding:10px 4px 12px;
+    font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.4px;
+    font-size:13.5px; font-weight:500; cursor:pointer; border-bottom:2px solid transparent;
+    margin-bottom:-1px; margin-right:18px;
+  }
+  .view-tab.active{color:var(--amber); border-bottom-color:var(--amber);}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  /* ===== Dashboard BI ===== */
+  .kpi-row{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:20px;}
+  .kpi-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:16px 18px;
+  }
+  .kpi-card .kpi-lbl{font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-dim);}
+  .kpi-card .kpi-val{font-family:'IBM Plex Mono',monospace; font-size:26px; font-weight:600; margin-top:6px;}
+  .kpi-card .kpi-sub{font-size:11px; color:var(--text-faint); margin-top:4px;}
+  .kpi-card.accent .kpi-val{color:var(--amber);}
+  .kpi-card.good .kpi-val{color:var(--green);}
+  .kpi-card.bad .kpi-val{color:var(--red);}
+
+  .chart-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px;}
+  .chart-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:18px 20px 14px;
+  }
+  .chart-card.wide{grid-column:1/-1;}
+  .chart-card h3{
+    font-family:'Oswald',sans-serif; font-size:13.5px; text-transform:uppercase;
+    letter-spacing:.4px; color:var(--text-dim); margin-bottom:12px; font-weight:500;
+  }
+  .chart-card .chart-wrap{position:relative; height:230px;}
+  .chart-card.wide .chart-wrap{height:200px;}
+  .dash-empty{
+    text-align:center; padding:60px 20px; color:var(--text-faint);
+    border:1px dashed var(--line); border-radius:10px; font-size:14px; margin-top:20px;
+  }
+
+  @media (max-width:820px){
+    .kpi-row{grid-template-columns:1fr 1fr;}
+    .chart-grid{grid-template-columns:1fr;}
+  }
+
+  /* ===== Reciclagens ===== */
+  .threshold-row{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    margin-top:20px; background:var(--panel); border:1px solid var(--line);
+    border-radius:9px; padding:12px 16px;
+  }
+  .threshold-lbl{font-size:12.5px; color:var(--text-dim);}
+  .threshold-row input[type=number]{width:70px; text-align:center;}
+
+  .section-title{
+    font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.4px;
+    font-size:13.5px; color:var(--text-dim); font-weight:500; margin-top:20px; margin-bottom:10px;
+  }
+  .section-title.alert-title{color:var(--red);}
+
+  .recic-card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-left:4px solid var(--text-faint);
+    border-radius:9px;
+    padding:12px 18px;
+    display:grid;
+    grid-template-columns:1.4fr 1fr 1fr auto;
+    gap:14px;
+    align-items:center;
+  }
+  .recic-card.status-verde{border-left-color:var(--green);}
+  .recic-card.status-amber{border-left-color:var(--amber);}
+  .recic-card.status-red{border-left-color:var(--red);}
+  .recic-card .rc-nome{font-weight:600; font-size:14px; cursor:pointer;}
+  .recic-card .rc-nome:hover{color:var(--amber);}
+  .recic-card .rc-venc{font-family:'IBM Plex Mono',monospace; font-size:12.5px;}
+  .recic-card .rc-actions{display:flex; gap:8px; justify-self:end;}
+  .badge-ok{
+    font-size:11px; padding:5px 11px; border-radius:20px; font-weight:600;
+    background:var(--green-dim); color:#7fe0ac; white-space:nowrap;
+  }
+  @media (max-width:820px){
+    .recic-card{grid-template-columns:1fr 1fr;}
+    .recic-card .rc-nome{grid-column:1/-1;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="nameplate">
+    <div>
+      <div class="nameplate-title">
+        <span class="pulse"></span>
+        <h1>Painel de Ações</h1>
+      </div>
+      <div class="sub">SEGURANÇA · QUALIDADE · OPERAÇÃO — CONTROLE DE ACOMPANHAMENTO</div>
+      <div class="sub" id="storage-mode-note" style="margin-top:2px;"></div>
+    </div>
+    <div class="readout-row">
+      <div class="readout aberta" data-filtro="Aberta" tabindex="0" role="button"><div class="num" id="cnt-aberta">0</div><div class="lbl">Abertas</div></div>
+      <div class="readout andamento" data-filtro="Em andamento" tabindex="0" role="button"><div class="num" id="cnt-andamento">0</div><div class="lbl">Andamento</div></div>
+      <div class="readout concluida" data-filtro="Concluída" tabindex="0" role="button"><div class="num" id="cnt-concluida">0</div><div class="lbl">Concluídas</div></div>
+      <div class="readout atrasada" data-filtro="__atrasadas" tabindex="0" role="button"><div class="num" id="cnt-atrasada">0</div><div class="lbl">Atrasadas</div></div>
+    </div>
+  </div>
+
+  <div class="view-tabs">
+    <button class="view-tab active" data-view="painel">Painel</button>
+    <button class="view-tab" data-view="dashboard">Dashboard</button>
+    <button class="view-tab" data-view="reciclagens">Reciclagens</button>
+  </div>
+
+  <div class="view active" id="view-painel">
+  <div class="toolbar">
+    <input type="text" class="search" id="search" placeholder="Buscar ação, responsável...">
+    <select id="filter-area">
+      <option value="">Todas as áreas</option>
+      <option value="Segurança">Segurança</option>
+      <option value="Qualidade">Qualidade</option>
+      <option value="Operação">Operação</option>
+      <option value="Manutenção">Manutenção</option>
+      <option value="Outra">Outra</option>
+    </select>
+    <select id="filter-status">
+      <option value="">Todos os status</option>
+      <option value="Aberta">Aberta</option>
+      <option value="Em andamento">Em andamento</option>
+      <option value="Concluída">Concluída</option>
+    </select>
+    <select id="sort-by">
+      <option value="prazo">Ordenar: prazo</option>
+      <option value="area">Ordenar: área</option>
+      <option value="status">Ordenar: status</option>
+    </select>
+    <button class="btn secondary" id="btn-manage-areas">Cadastrar área</button>
+    <button class="btn secondary" id="btn-import">Importar dados</button>
+    <button class="btn" id="btn-new">+ Nova ação</button>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <div class="footer-note" id="loading-note">Carregando painel…</div>
+  </div>
+
+  <div class="view" id="view-dashboard">
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-lbl">Total de ações</div>
+        <div class="kpi-val" id="kpi-total">0</div>
+        <div class="kpi-sub" id="kpi-total-sub">&nbsp;</div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-lbl">Taxa de conclusão</div>
+        <div class="kpi-val" id="kpi-taxa">0%</div>
+        <div class="kpi-sub" id="kpi-taxa-sub">&nbsp;</div>
+      </div>
+      <div class="kpi-card accent">
+        <div class="kpi-lbl">Tempo médio p/ concluir</div>
+        <div class="kpi-val" id="kpi-tempo">—</div>
+        <div class="kpi-sub">dias, do cadastro à conclusão</div>
+      </div>
+      <div class="kpi-card bad">
+        <div class="kpi-lbl">Atrasadas agora</div>
+        <div class="kpi-val" id="kpi-atrasadas">0</div>
+        <div class="kpi-sub" id="kpi-atrasadas-sub">&nbsp;</div>
+      </div>
+    </div>
+
+    <div id="dash-empty" class="dash-empty" style="display:none;">Cadastre ações no painel para ver os indicadores aqui.</div>
+
+    <div class="chart-grid" id="dash-charts">
+      <div class="chart-card">
+        <h3>Status das ações</h3>
+        <div class="chart-wrap"><canvas id="chart-status"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Prioridade</h3>
+        <div class="chart-wrap"><canvas id="chart-prioridade"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Ações por área</h3>
+        <div class="chart-wrap"><canvas id="chart-area"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Áreas com mais atraso</h3>
+        <div class="chart-wrap"><canvas id="chart-atraso-area"></canvas></div>
+      </div>
+      <div class="chart-card wide">
+        <h3>Evolução mensal — criadas × concluídas</h3>
+        <div class="chart-wrap"><canvas id="chart-evolucao"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="view" id="view-reciclagens">
+    <div class="threshold-row">
+      <span class="threshold-lbl">Emitir alerta</span>
+      <input type="number" id="f-alerta-dias" min="1" max="365" value="45">
+      <span class="threshold-lbl">dias antes do vencimento</span>
+      <button class="btn secondary" id="btn-salvar-alerta-dias">Salvar</button>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" class="search" id="recic-search" placeholder="Buscar colaborador...">
+      <select id="recic-filter-categoria">
+        <option value="">Todas as categorias</option>
+        <option>Empilhadeira</option>
+        <option>Rebocador</option>
+        <option>Ponte</option>
+        <option>NR35</option>
+        <option>PTA</option>
+        <option>Outra</option>
+      </select>
+      <button class="btn secondary" id="btn-import-recic">Importar planilha</button>
+      <button class="btn" id="btn-new-recic">+ Nova reciclagem</button>
+    </div>
+
+    <div id="recic-alert-section" style="display:none;">
+      <h3 class="section-title alert-title">⚠ Alertas ativos</h3>
+      <div class="board" id="recic-alert-board"></div>
+    </div>
+
+    <h3 class="section-title" style="margin-top:26px;">Todas as reciclagens</h3>
+    <div class="board" id="recic-board"></div>
+  </div>
+
+</div>
+
+<!-- Modal: nova/editar reciclagem -->
+<div class="overlay" id="overlay-recic">
+  <div class="modal" style="max-width:480px;">
+    <h2 id="recic-modal-title">Nova reciclagem <button class="close-x" id="close-recic-modal" aria-label="Fechar">✕</button></h2>
+
+    <div class="field">
+      <label>Colaborador</label>
+      <input type="text" id="f-recic-colaborador" placeholder="Nome do colaborador">
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Categoria</label>
+        <select id="f-recic-categoria">
+          <option>Empilhadeira</option>
+          <option>Rebocador</option>
+          <option>Ponte</option>
+          <option>NR35</option>
+          <option>PTA</option>
+          <option>Outra</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Vencimento da reciclagem</label>
+        <input type="date" id="f-recic-vencimento">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn danger" id="btn-recic-delete" style="display:none;">Excluir</button>
+      <div class="modal-actions-right">
+        <button class="btn secondary" id="btn-recic-cancel">Cancelar</button>
+        <button class="btn" id="btn-recic-save">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: importar planilha de reciclagens -->
+<div class="overlay" id="overlay-import-recic">
+  <div class="modal" style="max-width:640px;">
+    <h2>Importar planilha de reciclagens <button class="close-x" id="close-import-recic-modal" aria-label="Fechar">✕</button></h2>
+
+    <div class="dropzone" id="dz-recic">
+      <div class="dz-icon">📄</div>
+      <div class="dz-title">Clique para escolher um arquivo .xlsx, .xls ou .csv</div>
+      <div class="dz-sub">Colunas reconhecidas: colaborador, categoria, vencimento (ou data da reciclagem + validade em meses)</div>
+    </div>
+    <input type="file" id="f-recic-planilha" accept=".xlsx,.xls,.csv" style="display:none;">
+
+    <div id="import-recic-status"></div>
+    <div id="import-recic-preview"></div>
+
+    <div class="modal-actions" id="import-recic-confirm-row" style="display:none;">
+      <div class="note" style="align-self:center;">Colaborador + categoria já existentes serão atualizados com a nova data.</div>
+      <div class="modal-actions-right">
+        <button class="btn secondary" id="btn-import-recic-cancel">Cancelar</button>
+        <button class="btn" id="btn-import-recic-confirm">Importar</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modal-title">Nova ação <button class="close-x" id="close-modal" aria-label="Fechar">✕</button></h2>
+
+    <div class="field">
+      <label>Ação</label>
+      <textarea id="f-titulo" placeholder="Descreva a ação a ser executada"></textarea>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Área</label>
+        <select id="f-area">
+          <option>Segurança</option>
+          <option>Qualidade</option>
+          <option>Operação</option>
+          <option>Manutenção</option>
+          <option>Outra</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Prioridade</label>
+        <select id="f-prioridade">
+          <option>Alta</option>
+          <option selected>Média</option>
+          <option>Baixa</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Responsável pela área</label>
+        <input type="text" id="f-resp-area" placeholder="Nome">
+      </div>
+      <div class="field">
+        <label>Responsável pela ação (opcional)</label>
+        <input type="text" id="f-resp-acao" placeholder="Nome">
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Prazo</label>
+        <input type="date" id="f-prazo">
+      </div>
+      <div class="field">
+        <label>Status</label>
+        <select id="f-status">
+          <option>Aberta</option>
+          <option>Em andamento</option>
+          <option>Concluída</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field" id="evid-section" style="display:none;">
+      <label>Evidências</label>
+      <div class="evid-log" id="evid-log"></div>
+      <div class="evid-add">
+        <textarea id="f-evid-novo" placeholder="Adicionar registro de evidência..."></textarea>
+        <button class="btn secondary" id="btn-add-evid" style="align-self:flex-start;">Adicionar</button>
+      </div>
+      <div class="note">Cada evidência fica registrada com data e hora. O disparo automático de e-mail para a área responsável não está disponível dentro do painel — recomenda-se configurar isso à parte, integrando com o e-mail da área.</div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn danger" id="btn-delete" style="display:none;">Excluir ação</button>
+      <div class="modal-actions-right">
+        <button class="btn secondary" id="btn-cancel">Cancelar</button>
+        <button class="btn" id="btn-save">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: cadastrar área -->
+<div class="overlay" id="overlay-area">
+  <div class="modal" style="max-width:460px;">
+    <h2>Áreas cadastradas <button class="close-x" id="close-area-modal" aria-label="Fechar">✕</button></h2>
+    <div class="area-list" id="area-list"></div>
+    <div class="field">
+      <label>Nova área</label>
+      <div class="add-area-row">
+        <input type="text" id="f-nova-area" placeholder="Ex.: Manutenção elétrica">
+        <button class="btn" id="btn-add-area">Adicionar</button>
+      </div>
+    </div>
+    <div class="note">Áreas padrão (Segurança, Qualidade, Operação, Manutenção, Outra) não podem ser removidas.</div>
+  </div>
+</div>
+
+<!-- Modal: importar dados -->
+<div class="overlay" id="overlay-import">
+  <div class="modal" style="max-width:640px;">
+    <h2>Importar dados <button class="close-x" id="close-import-modal" aria-label="Fechar">✕</button></h2>
+
+    <div class="import-tabs">
+      <button class="import-tab active" data-tab="planilha">Planilha</button>
+      <button class="import-tab" data-tab="imagem">Imagem</button>
+    </div>
+
+    <div class="import-pane active" id="pane-planilha">
+      <div class="dropzone" id="dz-planilha">
+        <div class="dz-icon">📄</div>
+        <div class="dz-title">Clique para escolher um arquivo .xlsx, .xls ou .csv</div>
+        <div class="dz-sub">Colunas reconhecidas: ação, área, responsável pela área, responsável pela ação, prazo, status, prioridade</div>
+      </div>
+      <input type="file" id="f-planilha" accept=".xlsx,.xls,.csv" style="display:none;">
+    </div>
+
+    <div class="import-pane" id="pane-imagem">
+      <div class="dropzone" id="dz-imagem">
+        <div class="dz-icon">🖼️</div>
+        <div class="dz-title">Clique para escolher uma foto ou print</div>
+        <div class="dz-sub">Ex.: foto de um quadro de ações, print de planilha ou lista escrita à mão</div>
+      </div>
+      <input type="file" id="f-imagem" accept="image/*" style="display:none;">
+    </div>
+
+    <div id="import-status-area"></div>
+    <div id="import-preview-area"></div>
+
+    <div class="modal-actions" id="import-confirm-row" style="display:none;">
+      <div></div>
+      <div class="modal-actions-right">
+        <button class="btn secondary" id="btn-import-cancel">Cancelar</button>
+        <button class="btn" id="btn-import-confirm">Importar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'painel-acoes:lista';
+const AREAS_KEY = 'painel-acoes:areas-custom';
+const DEFAULT_AREAS = ['Segurança','Qualidade','Operação','Manutenção','Outra'];
+let areasCustom = [];
+let importPreview = [];
+let acoes = [];
+let editingId = null;
+let filtroAtrasadas = false;
+let reciclagens = [];
+let alertaDias = 45;
+let editingRecicId = null;
+let reciclagemOrigemId = null;
+let importRecicPreview = [];
+const RECIC_KEY = 'painel-acoes:reciclagens';
+const ALERTA_DIAS_KEY = 'painel-acoes:alerta-dias';
+
+/* ===== Armazenamento compartilhado (Google Sheets via Apps Script) =====
+   Cole aqui a URL do Web App do Apps Script (ver guia GUIA-CONFIGURACAO.md)
+   antes de publicar no GitHub Pages. Com essa URL preenchida, todo mundo que
+   abrir o link lê e grava na mesma planilha do Google Sheets.
+   Usa apenas GET (o firewall da Gestamp bloqueia POST para fora), com envio
+   em pedaços (chunks) para não estourar o limite de tamanho da URL.
+   Deixando em branco, o painel funciona sozinho: usa o armazenamento do Claude
+   quando disponível, ou o localStorage do navegador (dados só naquele dispositivo). */
+const APPS_SCRIPT_URL = '';
+const CHUNK_SIZE = 1800; // tamanho de cada pedaço (já codificado) enviado por GET
+
+async function storageGet(key, shared){
+  if(APPS_SCRIPT_URL){
+    try{
+      const resp = await fetch(`${APPS_SCRIPT_URL}?action=get&key=${encodeURIComponent(key)}`);
+      const data = await resp.json();
+      return (data && data.ok && data.value !== undefined && data.value !== null) ? {key, value:data.value, shared:!!shared} : null;
+    }catch(e){
+      console.error('Falha ao ler do Google Sheets', e);
+      return null;
+    }
+  }
+  if(typeof window.storage !== 'undefined' && window.storage){
+    try{ return await window.storage.get(key, shared); }
+    catch(e){ /* cai para localStorage */ }
+  }
+  try{
+    const raw = localStorage.getItem(key);
+    return raw !== null ? {key, value:raw, shared:!!shared} : null;
+  }catch(e){ return null; }
+}
+async function storageSet(key, value, shared){
+  if(APPS_SCRIPT_URL){
+    try{
+      const encoded = encodeURIComponent(value);
+      const chunks = [];
+      for(let i=0; i<encoded.length; i+=CHUNK_SIZE) chunks.push(encoded.slice(i, i+CHUNK_SIZE));
+      if(chunks.length === 0) chunks.push('');
+      const uploadId = 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+      for(let i=0; i<chunks.length; i++){
+        const url = `${APPS_SCRIPT_URL}?action=setChunk&key=${encodeURIComponent(key)}&uploadId=${uploadId}&chunkIndex=${i}&totalChunks=${chunks.length}&data=${chunks[i]}`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+        if(!data || !data.ok) throw new Error('Falha ao enviar pedaço ' + i);
+      }
+      return {key, value, shared:!!shared};
+    }catch(e){
+      console.error('Falha ao gravar no Google Sheets', e);
+      return null;
+    }
+  }
+  if(typeof window.storage !== 'undefined' && window.storage){
+    try{ return await window.storage.set(key, value, shared); }
+    catch(e){ /* cai para localStorage */ }
+  }
+  try{
+    localStorage.setItem(key, value);
+    return {key, value, shared:!!shared};
+  }catch(e){ return null; }
+}
+
+function uid(){ return 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+async function loadData(){
+  try{
+    const res = await storageGet(STORAGE_KEY, false);
+    acoes = res && res.value ? JSON.parse(res.value) : [];
+  }catch(e){
+    acoes = [];
+  }
+  try{
+    const resA = await storageGet(AREAS_KEY, false);
+    areasCustom = resA && resA.value ? JSON.parse(resA.value) : [];
+  }catch(e){
+    areasCustom = [];
+  }
+  try{
+    const resR = await storageGet(RECIC_KEY, false);
+    reciclagens = resR && resR.value ? JSON.parse(resR.value) : [];
+  }catch(e){
+    reciclagens = [];
+  }
+  try{
+    const resD = await storageGet(ALERTA_DIAS_KEY, false);
+    alertaDias = resD && resD.value ? Number(resD.value) : 45;
+  }catch(e){
+    alertaDias = 45;
+  }
+  document.getElementById('f-alerta-dias').value = alertaDias;
+
+  const modoNote = document.getElementById('storage-mode-note');
+  if(APPS_SCRIPT_URL){
+    modoNote.textContent = 'Armazenamento compartilhado (Google Sheets) — mesmos dados para todos';
+  } else if(typeof window.storage !== 'undefined' && window.storage){
+    modoNote.textContent = '';
+  } else {
+    modoNote.textContent = '⚠ Armazenamento local deste navegador — configure a URL do Apps Script para compartilhar entre usuários';
+    modoNote.style.color = 'var(--amber)';
+  }
+  refreshAreaSelects();
+  document.getElementById('loading-note').style.display = 'none';
+  render();
+}
+
+function todasAreas(){
+  // Segurança, Qualidade, Operação, Manutenção primeiro, custom no meio, Outra por último
+  const base = DEFAULT_AREAS.slice(0,4);
+  return [...base, ...areasCustom, 'Outra'];
+}
+
+function refreshAreaSelects(){
+  const lista = todasAreas();
+  ['f-area','filter-area'].forEach(id=>{
+    const sel = document.getElementById(id);
+    const atual = sel.value;
+    const primeiraOpcaoFiltro = id === 'filter-area' ? '<option value="">Todas as áreas</option>' : '';
+    sel.innerHTML = primeiraOpcaoFiltro + lista.map(a=>`<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+    if([...sel.options].some(o=>o.value===atual)) sel.value = atual;
+  });
+}
+
+async function saveAreas(){
+  try{
+    await storageSet(AREAS_KEY, JSON.stringify(areasCustom), false);
+  }catch(e){
+    console.error('Falha ao salvar áreas', e);
+  }
+}
+
+function renderAreaList(){
+  const wrap = document.getElementById('area-list');
+  wrap.innerHTML = '';
+  DEFAULT_AREAS.forEach(a=>{
+    const chip = document.createElement('div');
+    chip.className = 'area-chip default';
+    chip.textContent = a;
+    wrap.appendChild(chip);
+  });
+  areasCustom.forEach(a=>{
+    const chip = document.createElement('div');
+    chip.className = 'area-chip';
+    chip.innerHTML = `<span>${escapeHtml(a)}</span>`;
+    const btn = document.createElement('button');
+    btn.textContent = '✕';
+    btn.title = 'Remover área';
+    btn.addEventListener('click', async ()=>{
+      areasCustom = areasCustom.filter(x=>x!==a);
+      await saveAreas();
+      refreshAreaSelects();
+      renderAreaList();
+      render();
+    });
+    chip.appendChild(btn);
+    wrap.appendChild(chip);
+  });
+}
+
+async function adicionarArea(){
+  const input = document.getElementById('f-nova-area');
+  const nome = input.value.trim();
+  if(!nome) return;
+  if(todasAreas().some(a=>a.toLowerCase()===nome.toLowerCase())){
+    input.value = '';
+    return;
+  }
+  areasCustom.push(nome);
+  await saveAreas();
+  input.value = '';
+  refreshAreaSelects();
+  renderAreaList();
+  render();
+}
+
+async function saveData(){
+  try{
+    await storageSet(STORAGE_KEY, JSON.stringify(acoes), false);
+  }catch(e){
+    console.error('Falha ao salvar', e);
+  }
+}
+
+function diasRestantes(prazo){
+  if(!prazo) return null;
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const p = new Date(prazo + 'T00:00:00');
+  return Math.round((p - hoje) / 86400000);
+}
+
+function urgenciaClasse(status, dias){
+  if(status === 'Concluída') return {css:'status-concluida', days:'verde'};
+  if(dias === null) return {css:'', days:''};
+  if(dias < 0) return {css:'status-red', days:'red'};
+  if(dias <= 3) return {css:'status-red', days:'red'};
+  if(dias <= 7) return {css:'status-amber', days:'amber'};
+  return {css:'status-verde', days:'verde'};
+}
+
+function areaClasse(area){
+  const map = {'Segurança':'area-seguranca','Qualidade':'area-qualidade','Operação':'area-operacao','Manutenção':'area-manutencao'};
+  return map[area] || 'area-outra';
+}
+
+function pillClasse(status){
+  if(status === 'Aberta') return 'pill-aberta';
+  if(status === 'Em andamento') return 'pill-andamento';
+  return 'pill-concluida';
+}
+
+function fmtData(prazo){
+  if(!prazo) return '—';
+  const [y,m,d] = prazo.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function render(){
+  const busca = document.getElementById('search').value.trim().toLowerCase();
+  const fArea = document.getElementById('filter-area').value;
+  const fStatus = document.getElementById('filter-status').value;
+  const ordem = document.getElementById('sort-by').value;
+
+  let lista = acoes.filter(a=>{
+    if(fArea && a.area !== fArea) return false;
+    if(fStatus && a.status !== fStatus) return false;
+    if(filtroAtrasadas){
+      const d = diasRestantes(a.prazo);
+      if(a.status === 'Concluída' || d === null || d >= 0) return false;
+    }
+    if(busca){
+      const alvo = (a.titulo+' '+a.respArea+' '+(a.respAcao||'')).toLowerCase();
+      if(!alvo.includes(busca)) return false;
+    }
+    return true;
+  });
+
+  lista.sort((a,b)=>{
+    if(ordem === 'area') return (a.area||'').localeCompare(b.area||'');
+    if(ordem === 'status') return (a.status||'').localeCompare(b.status||'');
+    return (a.prazo||'9999').localeCompare(b.prazo||'9999');
+  });
+
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  if(lista.length === 0){
+    board.innerHTML = '<div class="empty">Nenhuma ação encontrada. Use "+ Nova ação" para lançar a primeira.</div>';
+  } else {
+    lista.forEach(a=>{
+      const dias = diasRestantes(a.prazo);
+      const urg = urgenciaClasse(a.status, dias);
+      const card = document.createElement('div');
+      card.className = `card ${urg.css}`;
+      card.tabIndex = 0;
+      card.innerHTML = `
+        <div>
+          <div class="c-title">${escapeHtml(a.titulo)}</div>
+          <div class="c-meta"><span class="tag ${areaClasse(a.area)}">${escapeHtml(a.area)}</span> · ${escapeHtml(a.prioridade||'Média')}</div>
+        </div>
+        <div class="c-resp"><span class="lbl">Área</span>${escapeHtml(a.respArea||'—')}</div>
+        <div class="c-resp"><span class="lbl">Ação</span>${escapeHtml(a.respAcao||'—')}</div>
+        <div class="c-prazo">${fmtData(a.prazo)}<div class="days ${urg.days}">${a.status==='Concluída' ? 'concluída' : (dias===null ? '' : dias<0 ? Math.abs(dias)+'d atrasada' : dias+'d restantes')}</div></div>
+        <div class="c-status-pill ${pillClasse(a.status)}">${escapeHtml(a.status)}</div>
+      `;
+      card.addEventListener('click', ()=>openModal(a.id));
+      card.addEventListener('keydown', e=>{ if(e.key==='Enter') openModal(a.id); });
+      board.appendChild(card);
+    });
+  }
+
+  document.getElementById('cnt-aberta').textContent = acoes.filter(a=>a.status==='Aberta').length;
+  document.getElementById('cnt-andamento').textContent = acoes.filter(a=>a.status==='Em andamento').length;
+  document.getElementById('cnt-concluida').textContent = acoes.filter(a=>a.status==='Concluída').length;
+  document.getElementById('cnt-atrasada').textContent = acoes.filter(a=>{
+    const d = diasRestantes(a.prazo);
+    return a.status !== 'Concluída' && d !== null && d < 0;
+  }).length;
+
+  document.querySelectorAll('.readout').forEach(r=>{
+    const ativo = filtroAtrasadas ? r.dataset.filtro === '__atrasadas' : (fStatus && r.dataset.filtro === fStatus);
+    r.classList.toggle('active-filter', !!ativo);
+  });
+
+  if(document.getElementById('view-dashboard').classList.contains('active')) renderDashboard();
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+
+function openModal(id, prefill){
+  editingId = id || null;
+  const a = id ? acoes.find(x=>x.id===id) : null;
+  const p = prefill || {};
+
+  document.getElementById('modal-title').firstChild.textContent = a ? 'Editar ação ' : 'Nova ação ';
+  document.getElementById('f-titulo').value = a ? a.titulo : (p.titulo || '');
+  document.getElementById('f-area').value = a ? a.area : (p.area || 'Segurança');
+  document.getElementById('f-prioridade').value = a ? (a.prioridade||'Média') : (p.prioridade || 'Média');
+  document.getElementById('f-resp-area').value = a ? a.respArea : (p.respArea || '');
+  document.getElementById('f-resp-acao').value = a ? (a.respAcao||'') : '';
+  document.getElementById('f-prazo').value = a ? a.prazo : (p.prazo || '');
+  document.getElementById('f-status').value = a ? a.status : 'Aberta';
+  document.getElementById('btn-delete').style.display = a ? 'inline-block' : 'none';
+
+  const evidSection = document.getElementById('evid-section');
+  if(a){
+    evidSection.style.display = 'block';
+    renderEvidencias(a.evidencias || []);
+  } else {
+    evidSection.style.display = 'none';
+  }
+
+  document.getElementById('overlay').classList.add('open');
+}
+
+function renderEvidencias(lista){
+  const log = document.getElementById('evid-log');
+  log.innerHTML = lista.length ? '' : '<div class="note">Nenhuma evidência registrada ainda.</div>';
+  lista.slice().reverse().forEach(ev=>{
+    const item = document.createElement('div');
+    item.className = 'evid-item';
+    item.innerHTML = `<div class="when">${ev.quando}</div>${escapeHtml(ev.texto)}`;
+    log.appendChild(item);
+  });
+}
+
+function closeModal(){
+  document.getElementById('overlay').classList.remove('open');
+  editingId = null;
+  reciclagemOrigemId = null;
+}
+
+async function salvar(){
+  const titulo = document.getElementById('f-titulo').value.trim();
+  if(!titulo){ alert('Descreva a ação antes de salvar.'); return; }
+
+  const dados = {
+    titulo,
+    area: document.getElementById('f-area').value,
+    prioridade: document.getElementById('f-prioridade').value,
+    respArea: document.getElementById('f-resp-area').value.trim(),
+    respAcao: document.getElementById('f-resp-acao').value.trim(),
+    prazo: document.getElementById('f-prazo').value,
+    status: document.getElementById('f-status').value,
+  };
+
+  if(editingId){
+    const idx = acoes.findIndex(x=>x.id===editingId);
+    const anterior = acoes[idx];
+    if(dados.status === 'Concluída' && anterior.status !== 'Concluída'){
+      dados.concluidoEm = new Date().toISOString();
+    } else if(dados.status !== 'Concluída'){
+      dados.concluidoEm = null;
+    }
+    acoes[idx] = {...anterior, ...dados};
+  } else {
+    const extra = dados.status === 'Concluída' ? {concluidoEm:new Date().toISOString()} : {};
+    const novaAcao = {id:uid(), ...dados, evidencias:[], criadoEm:new Date().toISOString(), ...extra};
+    acoes.push(novaAcao);
+
+    if(reciclagemOrigemId){
+      const ridx = reciclagens.findIndex(r=>r.id===reciclagemOrigemId);
+      if(ridx !== -1){
+        reciclagens[ridx].acaoCriada = novaAcao.id;
+        await saveReciclagens();
+      }
+    }
+  }
+
+  await saveData();
+  closeModal();
+  render();
+  renderReciclagens();
+}
+
+async function excluir(){
+  if(!editingId) return;
+  if(!confirm('Excluir esta ação permanentemente?')) return;
+  acoes = acoes.filter(x=>x.id!==editingId);
+  await saveData();
+  closeModal();
+  render();
+}
+
+async function adicionarEvidencia(){
+  const texto = document.getElementById('f-evid-novo').value.trim();
+  if(!texto || !editingId) return;
+  const idx = acoes.findIndex(x=>x.id===editingId);
+  if(idx === -1) return;
+  if(!acoes[idx].evidencias) acoes[idx].evidencias = [];
+  const agora = new Date();
+  acoes[idx].evidencias.push({
+    texto,
+    quando: agora.toLocaleDateString('pt-BR') + ' ' + agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})
+  });
+  document.getElementById('f-evid-novo').value = '';
+  await saveData();
+  renderEvidencias(acoes[idx].evidencias);
+  render();
+}
+
+document.getElementById('btn-new').addEventListener('click', ()=>openModal(null));
+document.getElementById('close-modal').addEventListener('click', closeModal);
+document.getElementById('btn-cancel').addEventListener('click', closeModal);
+document.getElementById('btn-save').addEventListener('click', salvar);
+document.getElementById('btn-delete').addEventListener('click', excluir);
+document.getElementById('btn-add-evid').addEventListener('click', adicionarEvidencia);
+document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
+document.getElementById('search').addEventListener('input', render);
+document.getElementById('filter-area').addEventListener('change', render);
+document.getElementById('filter-status').addEventListener('change', ()=>{ filtroAtrasadas = false; render(); });
+document.getElementById('sort-by').addEventListener('change', render);
+
+/* ===== Contadores clicáveis (abrir lista filtrada por estágio) ===== */
+function ativarFiltroEstagio(filtro){
+  // volta para a view do Painel, caso esteja no Dashboard
+  document.querySelectorAll('.view-tab').forEach(t=>t.classList.toggle('active', t.dataset.view==='painel'));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.id==='view-painel'));
+
+  const fStatusSel = document.getElementById('filter-status');
+  if(filtro === '__atrasadas'){
+    filtroAtrasadas = true;
+    fStatusSel.value = '';
+  } else {
+    filtroAtrasadas = false;
+    fStatusSel.value = filtro;
+  }
+  render();
+  document.getElementById('board').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+document.querySelectorAll('.readout[data-filtro]').forEach(r=>{
+  r.addEventListener('click', ()=>ativarFiltroEstagio(r.dataset.filtro));
+  r.addEventListener('keydown', e=>{ if(e.key==='Enter') ativarFiltroEstagio(r.dataset.filtro); });
+});
+
+/* ===== Cadastro de área ===== */
+document.getElementById('btn-manage-areas').addEventListener('click', ()=>{
+  renderAreaList();
+  document.getElementById('overlay-area').classList.add('open');
+});
+document.getElementById('close-area-modal').addEventListener('click', ()=>{
+  document.getElementById('overlay-area').classList.remove('open');
+});
+document.getElementById('overlay-area').addEventListener('click', e=>{
+  if(e.target.id==='overlay-area') document.getElementById('overlay-area').classList.remove('open');
+});
+document.getElementById('btn-add-area').addEventListener('click', adicionarArea);
+document.getElementById('f-nova-area').addEventListener('keydown', e=>{ if(e.key==='Enter') adicionarArea(); });
+
+/* ===== Importar dados ===== */
+function resetImportModal(){
+  importPreview = [];
+  document.getElementById('import-status-area').innerHTML = '';
+  document.getElementById('import-preview-area').innerHTML = '';
+  document.getElementById('import-confirm-row').style.display = 'none';
+  document.getElementById('f-planilha').value = '';
+  document.getElementById('f-imagem').value = '';
+}
+
+document.getElementById('btn-import').addEventListener('click', ()=>{
+  resetImportModal();
+  document.getElementById('overlay-import').classList.add('open');
+});
+document.getElementById('close-import-modal').addEventListener('click', ()=>{
+  document.getElementById('overlay-import').classList.remove('open');
+});
+document.getElementById('btn-import-cancel').addEventListener('click', ()=>{
+  document.getElementById('overlay-import').classList.remove('open');
+});
+document.getElementById('overlay-import').addEventListener('click', e=>{
+  if(e.target.id==='overlay-import') document.getElementById('overlay-import').classList.remove('open');
+});
+
+document.querySelectorAll('.import-tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.import-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.import-pane').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('pane-'+tab.dataset.tab).classList.add('active');
+    resetImportModal();
+  });
+});
+
+document.getElementById('dz-planilha').addEventListener('click', ()=>document.getElementById('f-planilha').click());
+document.getElementById('dz-imagem').addEventListener('click', ()=>document.getElementById('f-imagem').click());
+
+document.getElementById('f-planilha').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  await processarPlanilha(file);
+});
+
+document.getElementById('f-imagem').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  await processarImagem(file);
+});
+
+function normalizarChave(s){
+  return s.toString().trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+
+function mapearLinha(obj){
+  const campos = {};
+  Object.keys(obj).forEach(k=>{ campos[normalizarChave(k)] = obj[k]; });
+
+  const pegar = (chaves)=>{
+    for(const c of chaves){
+      if(campos[c] !== undefined && campos[c] !== '') return String(campos[c]).trim();
+    }
+    return '';
+  };
+
+  let prazoRaw = pegar(['prazo','data','vencimento','data limite']);
+  let prazo = '';
+  if(prazoRaw){
+    if(/^\d{4}-\d{2}-\d{2}/.test(prazoRaw)){
+      prazo = prazoRaw.slice(0,10);
+    } else if(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(prazoRaw)){
+      const [d,m,y] = prazoRaw.split('/');
+      const ano = y.length===2 ? '20'+y : y;
+      prazo = `${ano}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    } else if(!isNaN(prazoRaw) && Number(prazoRaw) > 30000){
+      // serial de data do Excel
+      const d = XLSX.SSF.parse_date_code(Number(prazoRaw));
+      if(d) prazo = `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+    }
+  }
+
+  let status = pegar(['status','situacao']);
+  const statusValidos = ['Aberta','Em andamento','Concluída'];
+  if(!statusValidos.some(s=>s.toLowerCase()===status.toLowerCase())) status = 'Aberta';
+  else status = statusValidos.find(s=>s.toLowerCase()===status.toLowerCase());
+
+  let prioridade = pegar(['prioridade']);
+  const prioridadesValidas = ['Alta','Média','Baixa'];
+  if(!prioridadesValidas.some(p=>p.toLowerCase()===prioridade.toLowerCase())) prioridade = 'Média';
+  else prioridade = prioridadesValidas.find(p=>p.toLowerCase()===prioridade.toLowerCase());
+
+  return {
+    titulo: pegar(['acao','ação','titulo','descricao','descrição']),
+    area: pegar(['area','área']) || 'Outra',
+    respArea: pegar(['responsavel pela area','responsável pela área','responsavel area','resp area']),
+    respAcao: pegar(['responsavel pela acao','responsável pela ação','responsavel acao','resp acao']),
+    prazo,
+    status,
+    prioridade
+  };
+}
+
+async function processarPlanilha(file){
+  const statusEl = document.getElementById('import-status-area');
+  statusEl.innerHTML = `<div class="import-status"><div class="spinner"></div> Lendo planilha…</div>`;
+  document.getElementById('import-preview-area').innerHTML = '';
+  document.getElementById('import-confirm-row').style.display = 'none';
+  try{
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, {type:'array', cellDates:false});
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
+    const mapeadas = rows.map(mapearLinha).filter(r=>r.titulo);
+    if(mapeadas.length === 0){
+      statusEl.innerHTML = `<div class="import-error">Não encontrei linhas com o campo "ação" preenchido. Confira os cabeçalhos da planilha.</div>`;
+      return;
+    }
+    statusEl.innerHTML = '';
+    mostrarPreview(mapeadas);
+  }catch(err){
+    console.error(err);
+    statusEl.innerHTML = `<div class="import-error">Não consegui ler esse arquivo. Verifique se é um .xlsx, .xls ou .csv válido.</div>`;
+  }
+}
+
+function fileParaBase64(file){
+  return new Promise((resolve,reject)=>{
+    const r = new FileReader();
+    r.onload = ()=>resolve(r.result.split(',')[1]);
+    r.onerror = ()=>reject(new Error('Falha ao ler o arquivo'));
+    r.readAsDataURL(file);
+  });
+}
+
+async function processarImagem(file){
+  const statusEl = document.getElementById('import-status-area');
+  statusEl.innerHTML = `<div class="import-status"><div class="spinner"></div> Analisando imagem…</div>`;
+  document.getElementById('import-preview-area').innerHTML = '';
+  document.getElementById('import-confirm-row').style.display = 'none';
+  try{
+    const base64 = await fileParaBase64(file);
+    const mediaType = file.type || 'image/png';
+
+    const prompt = `Esta imagem mostra ações, tarefas ou pendências operacionais (pode ser foto de quadro, print de planilha, lista escrita à mão etc).
+Extraia cada item como uma ação e responda APENAS com um array JSON, sem markdown, sem texto adicional, no formato:
+[{"titulo":"...", "area":"Segurança|Qualidade|Operação|Manutenção|Outra", "respArea":"...", "respAcao":"...", "prazo":"AAAA-MM-DD ou vazio", "status":"Aberta|Em andamento|Concluída", "prioridade":"Alta|Média|Baixa"}]
+Se um campo não estiver visível na imagem, use string vazia "" (ou "Aberta" para status e "Média" para prioridade como padrão). Nunca invente responsáveis ou prazos que não estejam na imagem.`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
+        messages: [{
+          role: 'user',
+          content: [
+            {type:'image', source:{type:'base64', media_type:mediaType, data:base64}},
+            {type:'text', text: prompt}
+          ]
+        }]
+      })
+    });
+    const data = await response.json();
+    const textoResp = (data.content || []).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    const limpo = textoResp.replace(/```json|```/g,'').trim();
+    const bruto = JSON.parse(limpo);
+
+    const mapeadas = bruto.map(item=>{
+      const statusValidos = ['Aberta','Em andamento','Concluída'];
+      const prioridadesValidas = ['Alta','Média','Baixa'];
+      return {
+        titulo: (item.titulo||'').trim(),
+        area: (item.area||'Outra').trim() || 'Outra',
+        respArea: (item.respArea||'').trim(),
+        respAcao: (item.respAcao||'').trim(),
+        prazo: /^\d{4}-\d{2}-\d{2}$/.test(item.prazo) ? item.prazo : '',
+        status: statusValidos.includes(item.status) ? item.status : 'Aberta',
+        prioridade: prioridadesValidas.includes(item.prioridade) ? item.prioridade : 'Média'
+      };
+    }).filter(r=>r.titulo);
+
+    if(mapeadas.length === 0){
+      statusEl.innerHTML = `<div class="import-error">Não consegui identificar ações nessa imagem. Tente uma foto mais nítida ou use a importação por planilha.</div>`;
+      return;
+    }
+    statusEl.innerHTML = '';
+    mostrarPreview(mapeadas);
+  }catch(err){
+    console.error(err);
+    statusEl.innerHTML = `<div class="import-error">Não consegui analisar essa imagem agora. Tente novamente ou use a importação por planilha.</div>`;
+  }
+}
+
+function mostrarPreview(mapeadas){
+  importPreview = mapeadas;
+  const wrap = document.getElementById('import-preview-area');
+  wrap.innerHTML = `
+    <div class="preview-wrap">
+      <table class="preview-table">
+        <thead><tr><th>Ação</th><th>Área</th><th>Resp. área</th><th>Resp. ação</th><th>Prazo</th><th>Status</th></tr></thead>
+        <tbody>
+          ${mapeadas.map(r=>`<tr>
+            <td>${escapeHtml(r.titulo)}</td>
+            <td>${escapeHtml(r.area)}</td>
+            <td>${escapeHtml(r.respArea||'—')}</td>
+            <td>${escapeHtml(r.respAcao||'—')}</td>
+            <td>${fmtData(r.prazo)}</td>
+            <td>${escapeHtml(r.status)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="preview-count">${mapeadas.length} ação(ões) prontas para importar. Confira antes de confirmar.</div>
+  `;
+  document.getElementById('import-confirm-row').style.display = 'flex';
+}
+
+document.getElementById('btn-import-confirm').addEventListener('click', async ()=>{
+  if(importPreview.length === 0) return;
+  const novasAreas = new Set();
+  importPreview.forEach(r=>{
+    acoes.push({id:uid(), ...r, evidencias:[], criadoEm:new Date().toISOString()});
+    if(r.area && !todasAreas().some(a=>a.toLowerCase()===r.area.toLowerCase())){
+      novasAreas.add(r.area);
+    }
+  });
+  if(novasAreas.size){
+    areasCustom.push(...novasAreas);
+    await saveAreas();
+    refreshAreaSelects();
+  }
+  await saveData();
+  document.getElementById('overlay-import').classList.remove('open');
+  render();
+});
+
+loadData();
+
+/* ===== Navegação entre Painel e Dashboard ===== */
+document.querySelectorAll('.view-tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.view-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('view-'+tab.dataset.view).classList.add('active');
+    if(tab.dataset.view === 'dashboard') renderDashboard();
+    if(tab.dataset.view === 'reciclagens') renderReciclagens();
+  });
+});
+
+/* ===== Dashboard BI ===== */
+let charts = {};
+const CHART_TEXT = '#8b93a1';
+const CHART_GRID = '#232933';
+Chart.defaults.color = CHART_TEXT;
+Chart.defaults.font.family = "'Inter',sans-serif";
+Chart.defaults.font.size = 11.5;
+
+function upsertChart(id, config){
+  const ctx = document.getElementById(id);
+  if(charts[id]) charts[id].destroy();
+  charts[id] = new Chart(ctx, config);
+}
+
+function renderDashboard(){
+  const total = acoes.length;
+  document.getElementById('dash-empty').style.display = total === 0 ? 'block' : 'none';
+  document.getElementById('dash-charts').style.display = total === 0 ? 'none' : 'grid';
+  document.querySelector('.kpi-row').style.display = total === 0 ? 'none' : 'grid';
+  if(total === 0) return;
+
+  const concluidas = acoes.filter(a=>a.status==='Concluída');
+  const atrasadas = acoes.filter(a=>{
+    const d = diasRestantes(a.prazo);
+    return a.status !== 'Concluída' && d !== null && d < 0;
+  });
+
+  document.getElementById('kpi-total').textContent = total;
+  document.getElementById('kpi-total-sub').textContent = `${acoes.filter(a=>a.status!=='Concluída').length} em aberto`;
+
+  const taxa = total ? Math.round((concluidas.length/total)*100) : 0;
+  document.getElementById('kpi-taxa').textContent = taxa+'%';
+  document.getElementById('kpi-taxa-sub').textContent = `${concluidas.length} de ${total} concluídas`;
+
+  const temposConclusao = concluidas.filter(a=>a.concluidoEm && a.criadoEm).map(a=>{
+    return Math.round((new Date(a.concluidoEm) - new Date(a.criadoEm)) / 86400000);
+  });
+  const tempoMedio = temposConclusao.length ? Math.round(temposConclusao.reduce((s,v)=>s+v,0)/temposConclusao.length) : null;
+  document.getElementById('kpi-tempo').textContent = tempoMedio === null ? '—' : tempoMedio;
+
+  document.getElementById('kpi-atrasadas').textContent = atrasadas.length;
+  document.getElementById('kpi-atrasadas-sub').textContent = atrasadas.length ? 'requer atenção imediata' : 'nenhuma no momento';
+
+  // ---- Status ----
+  const statusCount = {'Aberta':0,'Em andamento':0,'Concluída':0};
+  acoes.forEach(a=>{ if(statusCount[a.status]!==undefined) statusCount[a.status]++; });
+  upsertChart('chart-status', {
+    type:'doughnut',
+    data:{
+      labels:Object.keys(statusCount),
+      datasets:[{data:Object.values(statusCount), backgroundColor:['#4c8dff','#f2a900','#2fb170'], borderColor:'#1a1f27', borderWidth:2}]
+    },
+    options:{
+      plugins:{legend:{position:'bottom', labels:{boxWidth:10, padding:14}}},
+      cutout:'62%',
+      maintainAspectRatio:false
+    }
+  });
+
+  // ---- Prioridade ----
+  const prioOrdem = ['Alta','Média','Baixa'];
+  const prioCount = {'Alta':0,'Média':0,'Baixa':0};
+  acoes.forEach(a=>{ const p=a.prioridade||'Média'; if(prioCount[p]!==undefined) prioCount[p]++; });
+  upsertChart('chart-prioridade', {
+    type:'bar',
+    data:{
+      labels:prioOrdem,
+      datasets:[{data:prioOrdem.map(p=>prioCount[p]), backgroundColor:['#e5484d','#f2a900','#2fb170'], borderRadius:5, maxBarThickness:44}]
+    },
+    options:{
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false}},
+        y:{beginAtZero:true, ticks:{precision:0}, grid:{color:CHART_GRID}}
+      },
+      maintainAspectRatio:false
+    }
+  });
+
+  // ---- Por área ----
+  const areas = todasAreas().filter(ar=>acoes.some(a=>a.area===ar));
+  const porArea = areas.map(ar=>acoes.filter(a=>a.area===ar).length);
+  upsertChart('chart-area', {
+    type:'bar',
+    data:{
+      labels:areas,
+      datasets:[{data:porArea, backgroundColor:'#4c8dff', borderRadius:5, maxBarThickness:34}]
+    },
+    options:{
+      indexAxis:'y',
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{beginAtZero:true, ticks:{precision:0}, grid:{color:CHART_GRID}},
+        y:{grid:{display:false}}
+      },
+      maintainAspectRatio:false
+    }
+  });
+
+  // ---- Áreas com mais atraso ----
+  const atrasoPorArea = {};
+  atrasadas.forEach(a=>{ atrasoPorArea[a.area] = (atrasoPorArea[a.area]||0)+1; });
+  const areasAtraso = Object.keys(atrasoPorArea).sort((a,b)=>atrasoPorArea[b]-atrasoPorArea[a]);
+  upsertChart('chart-atraso-area', {
+    type:'bar',
+    data:{
+      labels: areasAtraso.length ? areasAtraso : ['Sem atrasos'],
+      datasets:[{data: areasAtraso.length ? areasAtraso.map(a=>atrasoPorArea[a]) : [0], backgroundColor:'#e5484d', borderRadius:5, maxBarThickness:34}]
+    },
+    options:{
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false}},
+        y:{beginAtZero:true, ticks:{precision:0}, grid:{color:CHART_GRID}}
+      },
+      maintainAspectRatio:false
+    }
+  });
+
+  // ---- Evolução mensal: criadas x concluídas ----
+  const chave = d => { const dt = new Date(d); return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`; };
+  const rotulo = k => { const [y,m] = k.split('-'); return `${['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][Number(m)-1]}/${y.slice(2)}`; };
+
+  const todasChaves = new Set();
+  acoes.forEach(a=>{ if(a.criadoEm) todasChaves.add(chave(a.criadoEm)); if(a.concluidoEm) todasChaves.add(chave(a.concluidoEm)); });
+  const chavesOrdenadas = [...todasChaves].sort().slice(-8);
+
+  const criadasPorMes = chavesOrdenadas.map(k=>acoes.filter(a=>a.criadoEm && chave(a.criadoEm)===k).length);
+  const concluidasPorMes = chavesOrdenadas.map(k=>acoes.filter(a=>a.concluidoEm && chave(a.concluidoEm)===k).length);
+
+  upsertChart('chart-evolucao', {
+    type:'line',
+    data:{
+      labels: chavesOrdenadas.map(rotulo),
+      datasets:[
+        {label:'Criadas', data:criadasPorMes, borderColor:'#4c8dff', backgroundColor:'rgba(76,141,255,.12)', tension:.3, fill:true, pointRadius:3},
+        {label:'Concluídas', data:concluidasPorMes, borderColor:'#2fb170', backgroundColor:'rgba(47,177,112,.12)', tension:.3, fill:true, pointRadius:3}
+      ]
+    },
+    options:{
+      plugins:{legend:{position:'bottom', labels:{boxWidth:10, padding:14}}},
+      scales:{
+        x:{grid:{display:false}},
+        y:{beginAtZero:true, ticks:{precision:0}, grid:{color:CHART_GRID}}
+      },
+      maintainAspectRatio:false
+    }
+  });
+}
+
+/* ================= RECICLAGENS ================= */
+
+async function saveReciclagens(){
+  try{
+    await storageSet(RECIC_KEY, JSON.stringify(reciclagens), false);
+  }catch(e){
+    console.error('Falha ao salvar reciclagens', e);
+  }
+}
+
+function urgenciaReciclagem(dias){
+  if(dias === null) return {css:'', badge:''};
+  if(dias < 0) return {css:'status-red'};
+  if(dias <= alertaDias) return {css:'status-amber'};
+  return {css:'status-verde'};
+}
+
+function renderReciclagens(){
+  const busca = (document.getElementById('recic-search').value || '').trim().toLowerCase();
+  const fCat = document.getElementById('recic-filter-categoria').value;
+
+  let lista = reciclagens.filter(r=>{
+    if(fCat && r.categoria !== fCat) return false;
+    if(busca && !r.colaborador.toLowerCase().includes(busca)) return false;
+    return true;
+  });
+  lista.sort((a,b)=>(a.vencimento||'9999').localeCompare(b.vencimento||'9999'));
+
+  // ---- alertas ativos ----
+  const alertas = lista.filter(r=>{
+    const d = diasRestantes(r.vencimento);
+    return d !== null && d <= alertaDias;
+  });
+  const alertSection = document.getElementById('recic-alert-section');
+  const alertBoard = document.getElementById('recic-alert-board');
+  if(alertas.length === 0){
+    alertSection.style.display = 'none';
+  } else {
+    alertSection.style.display = 'block';
+    alertBoard.innerHTML = '';
+    alertas.forEach(r=>alertBoard.appendChild(renderReciclagemCard(r, true)));
+  }
+
+  // ---- lista completa ----
+  const board = document.getElementById('recic-board');
+  board.innerHTML = '';
+  if(lista.length === 0){
+    board.innerHTML = '<div class="empty">Nenhuma reciclagem cadastrada. Use "+ Nova reciclagem" ou importe a planilha da segurança.</div>';
+  } else {
+    lista.forEach(r=>board.appendChild(renderReciclagemCard(r, false)));
+  }
+}
+
+function renderReciclagemCard(r, emAlerta){
+  const dias = diasRestantes(r.vencimento);
+  const urg = urgenciaReciclagem(dias);
+  const card = document.createElement('div');
+  card.className = `recic-card ${urg.css}`;
+
+  const diasTxt = dias === null ? '—' : dias < 0 ? Math.abs(dias)+'d vencida' : dias+'d restantes';
+  const acaoJaLigada = r.acaoCriada && acoes.some(a=>a.id === r.acaoCriada);
+
+  let acoesHtml = '';
+  if(emAlerta){
+    acoesHtml = acaoJaLigada
+      ? `<span class="badge-ok">Ação criada ✓</span>`
+      : `<button class="btn secondary btn-criar-acao" data-id="${r.id}" style="padding:7px 12px; font-size:12px;">Criar ação</button>`;
+  }
+
+  card.innerHTML = `
+    <div class="rc-nome" data-edit="${r.id}">${escapeHtml(r.colaborador)}</div>
+    <div><span class="tag ${areaClasse(r.categoria)}">${escapeHtml(r.categoria)}</span></div>
+    <div class="rc-venc">${fmtData(r.vencimento)}<div class="days ${urg.css==='status-red'?'red':urg.css==='status-amber'?'amber':'verde'}">${diasTxt}</div></div>
+    <div class="rc-actions">${acoesHtml}</div>
+  `;
+  card.querySelector('.rc-nome').addEventListener('click', ()=>openReciclagemModal(r.id));
+  const btnCriar = card.querySelector('.btn-criar-acao');
+  if(btnCriar) btnCriar.addEventListener('click', (e)=>{ e.stopPropagation(); criarAcaoDeReciclagem(r.id); });
+  return card;
+}
+
+function openReciclagemModal(id){
+  editingRecicId = id || null;
+  const r = id ? reciclagens.find(x=>x.id===id) : null;
+
+  document.getElementById('recic-modal-title').firstChild.textContent = r ? 'Editar reciclagem ' : 'Nova reciclagem ';
+  document.getElementById('f-recic-colaborador').value = r ? r.colaborador : '';
+  document.getElementById('f-recic-categoria').value = r ? r.categoria : 'Empilhadeira';
+  document.getElementById('f-recic-vencimento').value = r ? r.vencimento : '';
+  document.getElementById('btn-recic-delete').style.display = r ? 'inline-block' : 'none';
+
+  document.getElementById('overlay-recic').classList.add('open');
+}
+
+function closeReciclagemModal(){
+  document.getElementById('overlay-recic').classList.remove('open');
+  editingRecicId = null;
+}
+
+async function salvarReciclagem(){
+  const colaborador = document.getElementById('f-recic-colaborador').value.trim();
+  const vencimento = document.getElementById('f-recic-vencimento').value;
+  if(!colaborador){ alert('Informe o nome do colaborador.'); return; }
+  if(!vencimento){ alert('Informe a data de vencimento da reciclagem.'); return; }
+
+  const dados = {
+    colaborador,
+    categoria: document.getElementById('f-recic-categoria').value,
+    vencimento
+  };
+
+  if(editingRecicId){
+    const idx = reciclagens.findIndex(x=>x.id===editingRecicId);
+    reciclagens[idx] = {...reciclagens[idx], ...dados};
+  } else {
+    reciclagens.push({id:uid(), ...dados, acaoCriada:null});
+  }
+
+  await saveReciclagens();
+  closeReciclagemModal();
+  renderReciclagens();
+}
+
+async function excluirReciclagem(){
+  if(!editingRecicId) return;
+  if(!confirm('Excluir esta reciclagem?')) return;
+  reciclagens = reciclagens.filter(x=>x.id!==editingRecicId);
+  await saveReciclagens();
+  closeReciclagemModal();
+  renderReciclagens();
+}
+
+function criarAcaoDeReciclagem(id){
+  const r = reciclagens.find(x=>x.id===id);
+  if(!r) return;
+  reciclagemOrigemId = id;
+  const dias = diasRestantes(r.vencimento);
+  const prioridade = (dias !== null && dias < 0) ? 'Alta' : (dias !== null && dias <= 15) ? 'Alta' : 'Média';
+  openModal(null, {
+    titulo: `Reciclagem de ${r.categoria} — ${r.colaborador}`,
+    area: 'Segurança',
+    prazo: r.vencimento,
+    prioridade
+  });
+}
+
+/* ---- importação da planilha de reciclagens ---- */
+
+function resetImportRecicModal(){
+  importRecicPreview = [];
+  document.getElementById('import-recic-status').innerHTML = '';
+  document.getElementById('import-recic-preview').innerHTML = '';
+  document.getElementById('import-recic-confirm-row').style.display = 'none';
+  document.getElementById('f-recic-planilha').value = '';
+}
+
+function mapearLinhaReciclagem(obj){
+  const campos = {};
+  Object.keys(obj).forEach(k=>{ campos[normalizarChave(k)] = obj[k]; });
+  const pegar = (chaves)=>{
+    for(const c of chaves){
+      if(campos[c] !== undefined && campos[c] !== '') return String(campos[c]).trim();
+    }
+    return '';
+  };
+
+  const parseData = (raw)=>{
+    if(!raw) return '';
+    raw = String(raw).trim();
+    if(/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0,10);
+    if(/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(raw)){
+      const [d,m,y] = raw.split('/');
+      const ano = y.length===2 ? '20'+y : y;
+      return `${ano}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    }
+    if(!isNaN(raw) && Number(raw) > 30000){
+      const dt = XLSX.SSF.parse_date_code(Number(raw));
+      if(dt) return `${dt.y}-${String(dt.m).padStart(2,'0')}-${String(dt.d).padStart(2,'0')}`;
+    }
+    return '';
+  };
+
+  let vencimento = parseData(pegar(['vencimento','data vencimento','validade ate','venc']));
+
+  if(!vencimento){
+    const dataBase = parseData(pegar(['data reciclagem','ultima reciclagem','data da reciclagem']));
+    const validadeMeses = Number(pegar(['validade meses','validade (meses)','validade']));
+    if(dataBase && validadeMeses){
+      const dt = new Date(dataBase+'T00:00:00');
+      dt.setMonth(dt.getMonth()+validadeMeses);
+      vencimento = dt.toISOString().slice(0,10);
+    }
+  }
+
+  const categoriasValidas = ['Empilhadeira','Rebocador','Ponte','NR35','PTA'];
+  let categoria = pegar(['categoria','treinamento','curso']);
+  const match = categoriasValidas.find(c=>c.toLowerCase()===categoria.toLowerCase());
+  categoria = match || (categoria || 'Outra');
+
+  return {
+    colaborador: pegar(['colaborador','nome','funcionario','empregado']),
+    categoria,
+    vencimento
+  };
+}
+
+async function processarPlanilhaReciclagens(file){
+  const statusEl = document.getElementById('import-recic-status');
+  statusEl.innerHTML = `<div class="import-status"><div class="spinner"></div> Lendo planilha…</div>`;
+  document.getElementById('import-recic-preview').innerHTML = '';
+  document.getElementById('import-recic-confirm-row').style.display = 'none';
+  try{
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, {type:'array', cellDates:false});
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
+    const mapeadas = rows.map(mapearLinhaReciclagem).filter(r=>r.colaborador && r.vencimento);
+    if(mapeadas.length === 0){
+      statusEl.innerHTML = `<div class="import-error">Não encontrei linhas com colaborador e vencimento preenchidos. Confira os cabeçalhos da planilha.</div>`;
+      return;
+    }
+    statusEl.innerHTML = '';
+    mostrarPreviewReciclagens(mapeadas);
+  }catch(err){
+    console.error(err);
+    statusEl.innerHTML = `<div class="import-error">Não consegui ler esse arquivo. Verifique se é um .xlsx, .xls ou .csv válido.</div>`;
+  }
+}
+
+function mostrarPreviewReciclagens(mapeadas){
+  importRecicPreview = mapeadas;
+  const wrap = document.getElementById('import-recic-preview');
+  wrap.innerHTML = `
+    <div class="preview-wrap">
+      <table class="preview-table">
+        <thead><tr><th>Colaborador</th><th>Categoria</th><th>Vencimento</th></tr></thead>
+        <tbody>
+          ${mapeadas.map(r=>`<tr>
+            <td>${escapeHtml(r.colaborador)}</td>
+            <td>${escapeHtml(r.categoria)}</td>
+            <td>${fmtData(r.vencimento)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="preview-count">${mapeadas.length} registro(s) prontos para importar.</div>
+  `;
+  document.getElementById('import-recic-confirm-row').style.display = 'flex';
+}
+
+document.getElementById('btn-import-recic-confirm').addEventListener('click', async ()=>{
+  if(importRecicPreview.length === 0) return;
+  importRecicPreview.forEach(r=>{
+    const idx = reciclagens.findIndex(x=>x.colaborador.toLowerCase()===r.colaborador.toLowerCase() && x.categoria.toLowerCase()===r.categoria.toLowerCase());
+    if(idx !== -1){
+      reciclagens[idx].vencimento = r.vencimento;
+    } else {
+      reciclagens.push({id:uid(), ...r, acaoCriada:null});
+    }
+  });
+  await saveReciclagens();
+  document.getElementById('overlay-import-recic').classList.remove('open');
+  renderReciclagens();
+});
+
+/* ---- wiring geral de Reciclagens ---- */
+
+document.getElementById('btn-salvar-alerta-dias').addEventListener('click', async ()=>{
+  const v = Number(document.getElementById('f-alerta-dias').value);
+  alertaDias = (v && v > 0) ? v : 45;
+  try{
+    await storageSet(ALERTA_DIAS_KEY, String(alertaDias), false);
+  }catch(e){ console.error('Falha ao salvar prazo de alerta', e); }
+  renderReciclagens();
+});
+
+document.getElementById('recic-search').addEventListener('input', renderReciclagens);
+document.getElementById('recic-filter-categoria').addEventListener('change', renderReciclagens);
+
+document.getElementById('btn-new-recic').addEventListener('click', ()=>openReciclagemModal(null));
+document.getElementById('close-recic-modal').addEventListener('click', closeReciclagemModal);
+document.getElementById('btn-recic-cancel').addEventListener('click', closeReciclagemModal);
+document.getElementById('btn-recic-save').addEventListener('click', salvarReciclagem);
+document.getElementById('btn-recic-delete').addEventListener('click', excluirReciclagem);
+document.getElementById('overlay-recic').addEventListener('click', e=>{ if(e.target.id==='overlay-recic') closeReciclagemModal(); });
+
+document.getElementById('btn-import-recic').addEventListener('click', ()=>{
+  resetImportRecicModal();
+  document.getElementById('overlay-import-recic').classList.add('open');
+});
+document.getElementById('close-import-recic-modal').addEventListener('click', ()=>{
+  document.getElementById('overlay-import-recic').classList.remove('open');
+});
+document.getElementById('btn-import-recic-cancel').addEventListener('click', ()=>{
+  document.getElementById('overlay-import-recic').classList.remove('open');
+});
+document.getElementById('overlay-import-recic').addEventListener('click', e=>{
+  if(e.target.id==='overlay-import-recic') document.getElementById('overlay-import-recic').classList.remove('open');
+});
+document.getElementById('dz-recic').addEventListener('click', ()=>document.getElementById('f-recic-planilha').click());
+document.getElementById('f-recic-planilha').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  await processarPlanilhaReciclagens(file);
+});
+</script>
+</body>
+</html>

@@ -763,7 +763,7 @@ const ALERTA_DIAS_KEY = 'painel-acoes:alerta-dias';
    em pedaços (chunks) para não estourar o limite de tamanho da URL.
    Deixando em branco, o painel funciona sozinho: usa o armazenamento do Claude
    quando disponível, ou o localStorage do navegador (dados só naquele dispositivo). */
-const APPS_SCRIPT_URL = '';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyoEQvcJHkA4LB8phcPJ3qmdwy90sI0uTKjPMlETYLLQ-NfMsPd_kid2vVTAG6Ikcoy/exec';
 const CHUNK_SIZE = 1800; // tamanho de cada pedaço (já codificado) enviado por GET
 
 async function storageGet(key, shared){
